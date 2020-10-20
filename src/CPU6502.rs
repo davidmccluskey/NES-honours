@@ -225,7 +225,6 @@ impl CPU6502{
         let mut hi:u8 = 0x00;
         let mut line_addr: u32 = 0;
         let mut lines = HashMap::new();
-        format!("{:X}", 42);
 
         while addr <= nStop as u32{
             line_addr = addr;
@@ -243,7 +242,6 @@ impl CPU6502{
             d.push_str(" ");
 
             if self.lookup[opcode as usize].addr_name == "IMP"{
-                addr = addr + 1;
                 d.push_str(" {IMP}");
             }else if self.lookup[opcode as usize].addr_name == "IMM"{
                 addr = addr + 1;

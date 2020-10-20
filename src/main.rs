@@ -7,6 +7,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::rect::Rect;
 use sdl2::render::TextureQuery;
+use sdl2::video::Window;
 use sdl2::pixels::Color;
 use uwl::StringStream;
 use std::fmt;
@@ -89,8 +90,6 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
     canvas.copy(&texture, None, Some(target))?;
     canvas.present();
 
-    //let mut stream = StringStream::new("A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA");
-
     let mut nOffset = 0x8000;
 
     let mut nes = CPU6502::CPU6502::new();
@@ -121,10 +120,9 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
     nes.reset();
 
     'mainloop: loop {
-
         for event in sdl_context.event_pump()?.poll_iter() {
             match event {
-                Event::KeyDown {keycode: Some(Keycode::Space), ..} => run_clock(&mut nes),
+                Event::KeyDown {keycode: Some(Keycode::Space), ..} => update(&mut nes, &window),
                 Event::KeyDown {keycode: Some(Keycode::Escape), ..} |
                 Event::Quit {..} => break 'mainloop,
                 _ => {}
@@ -135,7 +133,7 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
     Ok(())
 }
 
-fn run_clock(nes: &mut CPU6502::CPU6502){    
+fn update(nes: &mut CPU6502::CPU6502, window: &Window){    
     while {
         nes.clock(); 
         nes.disassemble(32768, 32796);
