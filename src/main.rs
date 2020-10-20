@@ -122,7 +122,7 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
     'mainloop: loop {
         for event in sdl_context.event_pump()?.poll_iter() {
             match event {
-                Event::KeyDown {keycode: Some(Keycode::Space), ..} => update(&mut nes, &window),
+                Event::KeyDown {keycode: Some(Keycode::Space), ..} => update(&mut nes),
                 Event::KeyDown {keycode: Some(Keycode::Escape), ..} |
                 Event::Quit {..} => break 'mainloop,
                 _ => {}
@@ -133,7 +133,7 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
     Ok(())
 }
 
-fn update(nes: &mut CPU6502::CPU6502, window: &Window){    
+fn update(nes: &mut CPU6502::CPU6502){    
     while {
         nes.clock(); 
         nes.disassemble(32768, 32796);
