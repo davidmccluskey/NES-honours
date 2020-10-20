@@ -24,3 +24,16 @@ jobs:
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
         cargo test
+
+  test_Windows:
+    runs-on: windows-2016
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build
+      run: 
+      cargo install cargo-vcpkg
+      cargo vcpkg build
+      cargo build
+    - name: Test
+      run: cargo test
