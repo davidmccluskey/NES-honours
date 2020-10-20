@@ -1,7 +1,8 @@
 language: rust
+os: osx
 
 script:
-  - sudo apt-get install libsdl2-dev
+  - brew install sdl2
   - cargo install cargo-vcpkg
   - cargo vcpkg build 
   - cargo build --verbose --workspace
