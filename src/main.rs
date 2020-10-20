@@ -8,6 +8,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::rect::Rect;
 use sdl2::render::TextureQuery;
 use sdl2::video::Window;
+use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use uwl::StringStream;
 use std::fmt;
@@ -48,15 +49,29 @@ fn get_centered_rect(rect_width: u32, rect_height: u32, cons_width: u32, cons_he
     rect!(cx, cy, w, h)
 }
 
-fn draw() {
-    
+fn render(canvas: &mut WindowCanvas, color: Color) {
+    canvas.set_draw_color(color);
+    canvas.clear();
+    canvas.present();
 }
 
+fn update(nes: &mut CPU6502::CPU6502 ){
+    while {
+        nes.clock(); 
+        !nes.complete()}{}
+}
 
-fn run(font_path: &Path, text: String) -> Result<(), String> {
+fn writer<W: Write>(f: &mut W, s: &str) -> Result<(), Error> {
+    f.write_str(s)
+}
+
+fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
+
+    let font_path: &Path = Path::new("PressStart2P-Regular.ttf");
+
 
     let window = video_subsys.window(" ", SCREEN_WIDTH, SCREEN_HEIGHT)
         .position_centered()
@@ -72,24 +87,6 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
     let mut font = ttf_context.load_font(font_path, 128)?;
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
-    // render a surface, and convert it to a texture bound to the canvas
-    let surface = font.render(&text)
-        .blended(Color::RGBA(255, 255, 255, 255)).map_err(|e| e.to_string())?;
-    let texture = texture_creator.create_texture_from_surface(&surface)
-        .map_err(|e| e.to_string())?;
-
-    canvas.set_draw_color(Color::RGBA(0, 50, 200, 255));
-    canvas.clear();
-
-    let TextureQuery { width, height, .. } = texture.query();
-
-    // If the example text is too big for the screen, downscale it (and center irregardless)
-    let padding = 64;
-    let target = get_centered_rect(width, height, SCREEN_WIDTH - padding, SCREEN_HEIGHT - padding);
-
-    canvas.copy(&texture, None, Some(target))?;
-    canvas.present();
-
     let mut nOffset = 0x8000;
 
     let mut nes = CPU6502::CPU6502::new();
@@ -104,50 +101,39 @@ fn run(font_path: &Path, text: String) -> Result<(), String> {
         nOffset = nOffset + 1;
     }
 
-    // while !stream.at_end(){
-    //     let b = stream.current().unwrap();
-    //     nOffset = (nOffset + 1) as usize;
-    //     if b != " " {
-    //         let z = u8::from_str_radix(b, 16).unwrap();
-    //         nes.bus.ram[nOffset] = z;
-    //     }
-    //     stream.next();
-    // }
-
     nes.bus.ram[0xFFFC] = 0x00;
     nes.bus.ram[0xFFFD] = 0x80;
+
+    let disassembly = nes.disassemble(0x0000, 0xFFFF);
     
     nes.reset();
+
+    let mut count = 0;
 
     'mainloop: loop {
         for event in sdl_context.event_pump()?.poll_iter() {
             match event {
-                Event::KeyDown {keycode: Some(Keycode::Space), ..} => update(&mut nes),
+                Event::KeyDown {keycode: Some(Keycode::Space), ..} => {update(&mut nes); count = count + 1;},
                 Event::KeyDown {keycode: Some(Keycode::Escape), ..} |
                 Event::Quit {..} => break 'mainloop,
                 _ => {}
             }
         }
+        let text = count.to_string();
+        let surface = font.render(&text)
+            .blended(Color::RGBA(255, 255, 255, 255)).map_err(|e| e.to_string())?;
+        let texture = texture_creator.create_texture_from_surface(&surface)
+            .map_err(|e| e.to_string())?;
+
+        canvas.clear();
+
+        let TextureQuery { width, height, .. } = texture.query();
+
+        let padding = 64;
+        let target = get_centered_rect(width, height, SCREEN_WIDTH - padding, SCREEN_HEIGHT - padding);
+
+        canvas.copy(&texture, None, Some(target))?;
+        canvas.present();
     }
-
-    Ok(())
-}
-
-fn update(nes: &mut CPU6502::CPU6502){    
-    while {
-        nes.clock(); 
-        nes.disassemble(32768, 32796);
-        !nes.complete()}{}
-}
-
-fn writer<W: Write>(f: &mut W, s: &str) -> Result<(), Error> {
-    f.write_str(s)
-}
-
-fn main() -> Result<(), String> {
-    let path: &Path = Path::new("PressStart2P-Regular.ttf");
-    let val: String = "10 x 3".to_string();
-    run(path, val)?;
-
     Ok(())
 }
