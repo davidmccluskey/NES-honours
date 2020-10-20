@@ -2,6 +2,6 @@ language: rust
 
 script:
   - cargo install cargo-vcpkg
-  - cargo vcpkg build
+  - cargo vcpkg build --verbose --workspace
   - cargo build --verbose --workspace
   - cargo test --verbose --workspace
