@@ -3,9 +3,6 @@ install:
     - ./vcpkg integrate install
 script:
   git clone https://github.com/Microsoft/vcpkg.git
-  cd vcpkg
-  ./bootstrap-vcpkg.sh
   ./vcpkg integrate install
-  ./vcpkg update
   - cargo build --verbose --workspace
   - cargo test --verbose --workspace
