@@ -24,5 +24,7 @@ os:
   - linux
 
 script:
+  - cargo install cargo-vcpkg
+  - cargo vcpkg build 
   - cargo build --verbose
   - cargo test
