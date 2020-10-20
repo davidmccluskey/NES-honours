@@ -31,7 +31,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Build
-      run: 
+      run: |
       cargo install cargo-vcpkg
       cargo vcpkg build
       cargo build
