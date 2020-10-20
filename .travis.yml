@@ -2,7 +2,7 @@ language: rust
 install:
     - ./vcpkg integrate install
 script:
-  git clone https://github.com/Microsoft/vcpkg.git
-  ./vcpkg integrate install
+  - git clone https://github.com/Microsoft/vcpkg.git
+  - vcpkg integrate install
   - cargo build --verbose --workspace
   - cargo test --verbose --workspace
