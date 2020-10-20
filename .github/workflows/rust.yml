@@ -32,8 +32,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Build
       run: |
-      cargo install cargo-vcpkg
-      cargo vcpkg build
-      cargo build
+        cargo install cargo-vcpkg
+        cargo vcpkg build
+        cargo build
     - name: Test
       run: cargo test
