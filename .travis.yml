@@ -1,10 +1,10 @@
 language: rust
 
 script:
-  git clone https://github.com/Microsoft/vcpkg.git
-  cd vcpkg
-  ./bootstrap-vcpkg.sh
-  ./vcpkg integrate install
-  ./vcpkg update
+  - git clone https://github.com/Microsoft/vcpkg.git
+  - cd vcpkg
+  - ./bootstrap-vcpkg.sh
+  - ./vcpkg integrate install
+  - ./vcpkg update
   - cargo build --verbose --workspace
   - cargo test --verbose --workspace
