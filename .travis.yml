@@ -4,6 +4,7 @@ script:
   - git clone https://github.com/Microsoft/vcpkg.git
   - cd vcpkg
   - ./bootstrap-vcpkg.sh
+  - cd ..
   - ./vcpkg integrate install
   - ./vcpkg update
   - cargo build --verbose --workspace
