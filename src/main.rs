@@ -26,34 +26,6 @@ macro_rules! rect(
     )
 );
 
-// Scale fonts to a reasonable size when they're too big (though they might look less smooth)
-fn get_centered_rect(rect_width: u32, rect_height: u32, cons_width: u32, cons_height: u32) -> Rect {
-    let wr = rect_width as f32 / cons_width as f32;
-    let hr = rect_height as f32 / cons_height as f32;
-
-    let (w, h) = if wr > 1f32 || hr > 1f32 {
-        if wr > hr {
-            println!("Scaling down! The text will look worse!");
-            let h = (rect_height as f32 / wr) as i32;
-            (cons_width as i32, h)
-        } else {
-            println!("Scaling down! The text will look worse!");
-            let w = (rect_width as f32 / hr) as i32;
-            (w, cons_height as i32)
-        }
-    } else {
-        (rect_width as i32, rect_height as i32)
-    };
-    let cx = (SCREEN_WIDTH as i32 - w) / 2;
-    let cy = (SCREEN_HEIGHT as i32 - h) / 2;
-    rect!(cx, cy, w, h)
-}
-
-fn render(canvas: &mut WindowCanvas, color: Color) {
-    canvas.set_draw_color(color);
-    canvas.clear();
-    canvas.present();
-}
 
 fn update(nes: &mut CPU6502::CPU6502 ){
     while {
@@ -72,7 +44,6 @@ fn main() -> Result<(), String> {
 
     let font_path: &Path = Path::new("PressStart2P-Regular.ttf");
 
-
     let window = video_subsys.window(" ", SCREEN_WIDTH, SCREEN_HEIGHT)
         .position_centered()
         .opengl()
@@ -81,7 +52,6 @@ fn main() -> Result<(), String> {
 
 
     let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
-    let texture_creator = canvas.texture_creator();
     
     // Load a font
     let mut font = ttf_context.load_font(font_path, 128)?;
@@ -104,7 +74,7 @@ fn main() -> Result<(), String> {
     nes.bus.ram[0xFFFC] = 0x00;
     nes.bus.ram[0xFFFD] = 0x80;
 
-    let disassembly = nes.disassemble(0x0000, 0xFFFF);
+    let mut disassembly = nes.disassemble(0x0000, 0xFFFF);
     
     nes.reset();
 
@@ -119,21 +89,112 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-        let text = count.to_string();
-        let surface = font.render(&text)
-            .blended(Color::RGBA(255, 255, 255, 255)).map_err(|e| e.to_string())?;
-        let texture = texture_creator.create_texture_from_surface(&surface)
-            .map_err(|e| e.to_string())?;
-
         canvas.clear();
+        let pc = nes.pc;
+        {
+            drawLine(rect!(900, 10, 200, 20), "Status Registers: ", &mut canvas, &font, Color::WHITE);
+            if nes.GetFlag(CPU6502::Flags::C) == 0 {
+                drawLine(rect!(900, 40, 20, 20), "N", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(900, 40, 20, 20), "N", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::V) == 0 {
+                drawLine(rect!(930, 40, 20, 20), "V", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(930, 40, 20, 20), "V", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::U) == 0 {
+                drawLine(rect!(960, 40, 20, 20), "U", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(960, 40, 20, 20), "U", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::B) == 0 {
+                drawLine(rect!(990, 40, 20, 20), "B", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(990, 40, 20, 20), "B", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::D) == 0 {
+                drawLine(rect!(1020, 40, 20, 20), "D", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(1020, 40, 20, 20), "D", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::I) == 0 {
+                drawLine(rect!(1050, 40, 20, 20), "I", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(1050, 40, 20, 20), "I", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::Z) == 0 {
+                drawLine(rect!(1080, 40, 20, 20), "Z", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(1080, 40, 20, 20), "Z", &mut canvas, &font, Color::GREEN);
+            }
+            if nes.GetFlag(CPU6502::Flags::C) == 0 {
+                drawLine(rect!(1110, 40, 20, 20), "C", &mut canvas, &font, Color::RED);
+            }else{
+                drawLine(rect!(1110, 40, 20, 20), "C", &mut canvas, &font, Color::GREEN);
+            }
+        }
+        {
+            let mut aReg = "A: ".to_owned();
+            aReg.push_str(&(format!("{:X}", &nes.a)));
+            aReg.push_str(" [");
+            aReg.push_str(&(nes.a).to_string());
+            aReg.push_str("]");
+            drawLine(rect!(900, 80, 200, 20), &aReg, &mut canvas, &font, Color::WHITE);
 
-        let TextureQuery { width, height, .. } = texture.query();
+            let mut aReg = "X: ".to_owned();
+            aReg.push_str(&(format!("{:X}", &nes.x)));
+            aReg.push_str(" [");
+            aReg.push_str(&(nes.x).to_string());
+            aReg.push_str("]");
+            drawLine(rect!(900, 110, 200, 20), &aReg, &mut canvas, &font, Color::WHITE);
 
-        let padding = 64;
-        let target = get_centered_rect(width, height, SCREEN_WIDTH - padding, SCREEN_HEIGHT - padding);
+            let mut aReg = "Y: ".to_owned();
+            aReg.push_str(&(format!("{:X}", &nes.y)));
+            aReg.push_str(" [");
+            aReg.push_str(&(nes.y).to_string());
+            aReg.push_str("]");
+            drawLine(rect!(900, 140, 200, 20), &aReg, &mut canvas, &font, Color::WHITE);
 
-        canvas.copy(&texture, None, Some(target))?;
+        }
+        let mut pcText = ("PC: ").to_owned();
+        pcText.push_str(&(format!("{:X}", &pc)));
+        drawLine(rect!(900, 170, 200, 20), &pcText, &mut canvas, &font, Color::WHITE);
+        let mut i = 0;
+
+        for x in 0..50 {
+            let val = (nes.pc + x) as u32;
+            let end = disassembly.capacity() as u32;
+            if val <= end {
+                let iteration = disassembly.get(&(val));
+                let text = String::from("Error");
+                let val = iteration.unwrap_or(&text);
+                if val != "Error"{
+                    i = i + 1;
+                    drawLine(rect!(900, 170 + (i * 50), 300, 20), &val, &mut canvas, &font, Color::WHITE);
+                }
+            }
+        }
+
+
+
+
+        //canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.present();
     }
     Ok(())
 }
+
+fn drawLine(rect: sdl2::rect::Rect, text: &str, canvas: &mut WindowCanvas, font: &sdl2::ttf::Font, color: sdl2::pixels::Color){
+    let texture_creator = canvas.texture_creator();
+    let surface = font.render(&text)
+        .blended(color).map_err(|e| e.to_string());
+    let texture = texture_creator.create_texture_from_surface(&surface.unwrap())
+        .map_err(|e| e.to_string());
+
+    canvas.copy(&texture.unwrap(), None, Some(rect));
+
+}
+
+#[cfg(test)]
+mod test;

@@ -8,12 +8,12 @@ use std::num::Wrapping;
 #[allow(non_snake_case)]
 pub struct CPU6502 {
     pub bus: StrBus,
-    a: u8,		         // Accumulator Register
+    pub a: u8,		         // Accumulator Register
     pub x: u8,      	 // X Register
-    y: u8,               // Y Register
-    sptr: u8,	         // Stack Pointer
+    pub y: u8,               // Y Register
+    pub sptr: u8,	         // Stack Pointer
     pub pc: u16,	     // Program Counter
-    sr: u8,		         // Status Register
+    pub sr: u8,		         // Status Register
 
     fetched: u8,         //Fetched data
     addr_absolute: u16,  //Absolute address
@@ -190,10 +190,6 @@ impl CPU6502{
     pub fn clock(&mut self){
         if self.cycles == 0 {
             self.opcode = self.read(self.pc);
-            println!("A value {}", self.a);
-            println!("X value {}", self.x);
-            println!("Y value {}", self.y);
-            println!(" ");
 
             self.pc = self.pc + 1;
             self.cycles = self.lookup[self.opcode as usize].cycles;
@@ -335,7 +331,6 @@ impl CPU6502{
                 value = self.bus.read(val, true); 
                 addr = addr + 1;
                 d.push_str("$");
-                d.push_str("($");		
                 format = format!("{:X}", value);			
                 d.push_str(&format);
                 d.push_str(" [&");
@@ -344,7 +339,7 @@ impl CPU6502{
                 d.push_str(&format);	
                 d.push_str("] {REL}");
             }
-                lines.insert(addr, d);
+                lines.insert(line_addr, d);
         }
         println!("");
         return lines;
@@ -975,7 +970,9 @@ impl CPU6502{
         self.pc = self.pc + 1;
 	
         self.SetFlag(Flags::I, true);
-        self.write(0x0100 + self.sptr as u16, (self.pc >> 8) as u8 & 0x00FF);
+        let addr = 0x0100 + self.sptr as u16;
+        let data = (self.pc >> 8) as u8 & 0x00FF;
+        self.write(addr, data);
         self.subtractStack();
         self.write(0x0100 + self.sptr as u16, (self.pc & 0x00FF) as u8);
         self.subtractStack();
@@ -1400,16 +1397,5 @@ impl CPU6502{
     //Illegal opcode
     fn ILL(&mut self) -> u8{
         return 0;
-    }
-}
-
-#[cfg(test)]
-
-mod tests{
-    use super::*;
-
-    #[test]
-    fn test_clock(){
-        assert_eq!(1, 1);
     }
 }
