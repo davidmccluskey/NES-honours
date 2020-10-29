@@ -1,5 +1,6 @@
 use super::*;
 use rand::Rng;
+use CPU6502::Flags;
 
 //https://github.com/leandromoreira/python_chip16/blob/master/tests/test_cpu.py#L132
 
@@ -89,22 +90,21 @@ fn test_subtract(){
     
 }
 
-#[test]
-fn test_setflag_false(){
-
-    
-}
 
 #[test]
-fn test_setflag_true(){
+fn test_getFlag_setFlag(){
+    let mut nes = CPU6502::CPU6502::new();
 
-    
-}
+    let mut a = nes.GetFlag(Flags::C);
+    assert_eq!(a, 0);
 
-#[test]
-fn test_getFlag(){
+    nes.SetFlag(Flags::C, true);
+    a = nes.GetFlag(Flags::C);
+    assert_eq!(a, 1);
 
-    
+    nes.SetFlag(Flags::C, false);
+    a = nes.GetFlag(Flags::C);
+    assert_eq!(a, 0);
 }
 
 #[test]
@@ -120,7 +120,6 @@ fn test_read_write(){
     let a3: u16 = rng.gen();
 
     let mut nes = CPU6502::CPU6502::new();
-    let random_number: u8 = rand::thread_rng().gen();
 
     nes.write(a1, n1);
     nes.write(a2, n2);
