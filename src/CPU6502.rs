@@ -8,12 +8,12 @@ use std::num::Wrapping;
 #[allow(non_snake_case)]
 pub struct CPU6502 {
     pub bus: StrBus,
-    pub a: u8,		         // Accumulator Register
+    pub a: u8,		     // Accumulator Register
     pub x: u8,      	 // X Register
-    pub y: u8,               // Y Register
-    pub sptr: u8,	         // Stack Pointer
+    pub y: u8,           // Y Register
+    pub sptr: u8,	     // Stack Pointer
     pub pc: u16,	     // Program Counter
-    pub sr: u8,		         // Status Register
+    pub sr: u8,		     // Status Register
 
     fetched: u8,         //Fetched data
     addr_absolute: u16,  //Absolute address
@@ -816,16 +816,16 @@ impl CPU6502{
     //Subtraction
     fn SBC(&mut self) -> u8{
         self.fetch();
-        let inversion = self.fetched ^ 0x00FF;
+        let inversion = (self.fetched ^ 0x00FF) as u16;
+        let a16 = self.a as u16;
 
-        let tmp = (self.a + inversion + self.GetFlag(Flags::C)) as u16;
+        let tmp = (a16 + inversion + (self.GetFlag(Flags::C)) as u16) as u16;
 
         self.SetFlag(Flags::C, tmp > 255);
-        self.SetFlag(Flags::Z, (tmp & 0x00FF) == 1);
+        self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0);
 
-        let a16 = self.a as u16;
         let fetched16 = self.fetched as u16;
-        let flag = (!(a16 ^ fetched16) & (a16 ^ tmp)) & 0x0080;
+        let flag = (a16 ^ fetched16) & (a16 ^ tmp) & 0x0080;
         if flag == 1{
             self.SetFlag(Flags::V, true);
         }else{
