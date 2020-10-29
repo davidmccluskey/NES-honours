@@ -137,7 +137,24 @@ fn test_read_write(){
 
 #[test]
 fn test_reset(){
+    let mut nes = CPU6502::CPU6502::new();
+    nes.reset();
 
+    assert_eq!(nes.a, 0);
+    assert_eq!(nes.x, 0);
+    assert_eq!(nes.y, 0);
+    assert_eq!(nes.sptr, 0xFD);
+
+    let low = nes.read(nes.addr_absolute) as u16;
+    let high = nes.read(nes.addr_absolute + 1) as u16;
+    let a = (high << 8) | low;
+
+    assert_eq!(nes.pc, a);
+
+    assert_eq!(nes.addr_absolute, 0x0000);
+    assert_eq!(nes.addr_relative, 0x0000);
+    assert_eq!(nes.fetched, 0x00);
+    assert_eq!(nes.cycles, 8);
 }
 
 #[test]

@@ -15,11 +15,11 @@ pub struct CPU6502 {
     pub pc: u16,	     // Program Counter
     pub sr: u8,		     // Status Register
 
-    fetched: u8,         //Fetched data
-    addr_absolute: u16,  //Absolute address
-    addr_relative: u16,  //Relative address
+    pub fetched: u8,         //Fetched data
+    pub addr_absolute: u16,  //Absolute address
+    pub addr_relative: u16,  //Relative address
     opcode: u8,          //Opcode for current instruction
-    cycles: u8,          //Number of cycles
+    pub cycles: u8,          //Number of cycles
 
     lookup: Vec<instruction>,   //lookup table
 }
