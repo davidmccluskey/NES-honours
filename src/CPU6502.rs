@@ -1,14 +1,13 @@
-use crate::bus::StrBus;
+use crate::bus::Bus;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::num::Wrapping;
 
 //All operations acquired from http://www.6502.org/tutorials/6502opcodes.html
 
-#[allow(non_snake_case)]
 pub struct CPU6502 {
-    pub bus: StrBus,
-    pub a: u8,		         // Accumulator Register
+    pub bus: Bus,
+    pub a: u8,		     // Accumulator Register
     pub x: u8,      	 // X Register
     pub y: u8,               // Y Register
     pub sptr: u8,	         // Stack Pointer
@@ -60,7 +59,7 @@ impl instruction{
 #[allow(non_snake_case)]
 impl CPU6502{
     pub fn new() -> CPU6502 {
-        let bus = StrBus::new();
+        let bus = Bus::new();
         let mut lookup = Vec::new();
         lookup = setLookup();
 
@@ -109,11 +108,11 @@ impl CPU6502{
     }
 
     pub fn read(&mut self, addr: u16 ) -> u8{
-        return self.bus.read(addr, false);
+        return self.bus.cpuRead(addr, false);
     }
 
-    pub fn write(&mut self, addr: u16, data: u8){
-        self.bus.write(addr, data);
+    pub fn write(&mut self, addr: u16, data: &mut u8){
+        self.bus.cpuWrite(addr, data);
     }
 
     // Reset Interrupt
@@ -138,20 +137,22 @@ impl CPU6502{
         self.fetched = 0x00;
 
         self.cycles = 8;
+        self.bus.reset();
     }
 
     // Interrupt Request
     pub fn irq(&mut self){
         if self.GetFlag(Flags::I) == 1{
             let val = (self.pc >> 8) & 0x00FF;
-            self.write(0x0100 + self.sptr as u16, val.to_be_bytes()[1]);
+            self.write(0x0100 + self.sptr as u16, &mut val.to_be_bytes()[1]);
             self.subtractStack();
 
             self.SetFlag(Flags::B, false);
             self.SetFlag(Flags::U, true);
             self.SetFlag(Flags::I, true);
 
-            self.write(0x0100 + self.sptr as u16, self.sr);
+            let mut sr = self.sr;
+            self.write(0x0100 + self.sptr as u16, &mut sr);
             self.subtractStack();
 
             self.addr_absolute = 0xFFFE;
@@ -167,14 +168,15 @@ impl CPU6502{
     // Non-Maskable Interrupt Request
     pub fn nmi(&mut self){
         let val = (self.pc >> 8) & 0x00FF;
-        self.write(0x0100 + self.sptr as u16, val.to_be_bytes()[1]);
+        self.write(0x0100 + self.sptr as u16, &mut val.to_be_bytes()[1]);
         self.subtractStack();
 
         self.SetFlag(Flags::B, false);
         self.SetFlag(Flags::U, true);
         self.SetFlag(Flags::I, true);
 
-        self.write(0x0100 + self.sptr as u16, self.sr);
+        let mut sr = self.sr;
+        self.write(0x0100 + self.sptr as u16, &mut sr);
         self.subtractStack();
 
         self.addr_absolute = 0xFFFE;
@@ -230,7 +232,7 @@ impl CPU6502{
             d.push_str(": ");
             //println!("{}", d);
             let mut val = u16::try_from(addr).unwrap();
-            let opcode:u8 = self.bus.read(val, true); 
+            let opcode:u8 = self.bus.cpuRead(val, true); 
             addr = addr + 1;
 
             let v = &self.lookup[opcode as usize].name;
@@ -243,45 +245,45 @@ impl CPU6502{
                 addr = addr + 1;
                 d.push_str(" {IMM}");
             }else if self.lookup[opcode as usize].addr_name == "ZP0"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 addr = addr + 1;
                 d.push_str("$");		
                 format = format!("{:X}", lo);			
                 d.push_str(&format);
                 d.push_str(" {ZP0}");		
             }else if self.lookup[opcode as usize].addr_name == "ZPX"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 addr = addr + 1;
                 d.push_str("$");		
                 format = format!("{:X}", lo);			
                 d.push_str(&format);
                 d.push_str(" X {ZPX}");	
 		}else if self.lookup[opcode as usize].addr_name == "ZPY"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 addr = addr + 1;
                 d.push_str("$");		
                 format = format!("{:X}", lo);			
                 d.push_str(&format);
                 d.push_str(" Y {ZPY}");
             }else if self.lookup[opcode as usize].addr_name == "IZX"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 addr = addr + 1;
                 d.push_str("$");		
                 format = format!("{:X}", lo);			
                 d.push_str(&format);
                 d.push_str(" X {IZX}");
             }else if self.lookup[opcode as usize].addr_name == "IZY"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 addr = addr + 1;
                 d.push_str("$");		
                 format = format!("{:X}", lo);			
                 d.push_str(&format);
                 d.push_str(" X {IZY}");
 		}else if self.lookup[opcode as usize].addr_name == "ABS"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
-                hi = self.bus.read(val, true); 
+                hi = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
                 d.push_str("$");		
@@ -290,10 +292,10 @@ impl CPU6502{
                 d.push_str(&format);
                 d.push_str(" {ABS}");
 		}else if self.lookup[opcode as usize].addr_name == "ABX"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
-                hi = self.bus.read(val, true); 
+                hi = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
                 d.push_str("$");		
@@ -302,10 +304,10 @@ impl CPU6502{
                 d.push_str(&format);
                 d.push_str(" X {ABX}");
 		}else if self.lookup[opcode as usize].addr_name == "ABY"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
-                hi = self.bus.read(val, true); 
+                hi = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
                 d.push_str("$");		
@@ -315,10 +317,10 @@ impl CPU6502{
                 d.push_str(" Y {ABY}");
 		}
 		else if self.lookup[opcode as usize].addr_name == "IND"{
-                lo = self.bus.read(val, true); 
+                lo = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
-                hi = self.bus.read(val, true); 
+                hi = self.bus.cpuRead(val, true); 
                 val = val + 1;
                 addr = addr + 1;
                 d.push_str("($");		
@@ -328,7 +330,7 @@ impl CPU6502{
                 d.push_str(" {IND})");
 		}else if self.lookup[opcode as usize].addr_name == "REL"
 		{
-                value = self.bus.read(val, true); 
+                value = self.bus.cpuRead(val, true); 
                 addr = addr + 1;
                 d.push_str("$");
                 format = format!("{:X}", value);			
@@ -864,7 +866,7 @@ impl CPU6502{
             self.a = temp & 0x00FF;
         }
         else{
-            self.write(self.addr_absolute, temp & 0x00FF);
+            self.write(self.addr_absolute, &mut (temp & 0x00FF));
         }
         return 0;
     }
@@ -971,14 +973,15 @@ impl CPU6502{
 	
         self.SetFlag(Flags::I, true);
         let addr = 0x0100 + self.sptr as u16;
-        let data = (self.pc >> 8) as u8 & 0x00FF;
-        self.write(addr, data);
+        let mut data = (self.pc >> 8) as u8 & 0x00FF;
+        self.write(addr, &mut data);
         self.subtractStack();
-        self.write(0x0100 + self.sptr as u16, (self.pc & 0x00FF) as u8);
+        self.write(0x0100 + self.sptr as u16, &mut ((self.pc & 0x00FF) as u8));
         self.subtractStack();
     
         self.SetFlag(Flags::B, true);
-        self.write(0x0100 + self.sptr as u16, self.sr);
+        let mut sr = self.sr;
+        self.write(0x0100 + self.sptr as u16, &mut sr);
         self.subtractStack();
         self.SetFlag(Flags::B, false);
     
@@ -1071,7 +1074,7 @@ impl CPU6502{
     fn DEC(&mut self) -> u8{
         self.fetch();
         let tmp = self.fetched - 1;
-        self.write(self.addr_absolute, tmp & 0x00FF);
+        self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.SetFlag(Flags::N, (tmp & 0x0080) == 1);    //Check
         return 0;
@@ -1108,7 +1111,7 @@ impl CPU6502{
     fn INC(&mut self) -> u8{
         self.fetch();
         let tmp = self.fetched + 1;
-        self.write(self.addr_absolute, tmp & 0x00FF);
+        self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.SetFlag(Flags::N, (tmp & 0x0080) == 1);
         return 0;
@@ -1140,9 +1143,9 @@ impl CPU6502{
     fn JSR(&mut self) -> u8{
         self.pc = self.pc - 1;
 
-        self.write(0x0100 + self.sptr as u16, ((self.pc >> 8) & 0x00FF).to_be_bytes()[1]);
+        self.write(0x0100 + self.sptr as u16, &mut ((self.pc >> 8) & 0x00FF).to_be_bytes()[1]);
         self.subtractStack();
-        self.write(0x0100 + self.sptr as u16, (self.pc & 0x00FF).to_be_bytes()[1]);
+        self.write(0x0100 + self.sptr as u16, &mut (self.pc & 0x00FF).to_be_bytes()[1]);
         self.subtractStack();
     
         self.pc = self.addr_absolute;
@@ -1187,7 +1190,7 @@ impl CPU6502{
             self.a = tmp & 0x00FF;
         }
         else{
-            self.write(self.addr_absolute, tmp & 0x00FF);
+            self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         }
         return 0;
     }
@@ -1216,14 +1219,15 @@ impl CPU6502{
 
     //Stack accumulator push
     fn PHA(&mut self) -> u8{
-        self.write(0x0100 + (self.sptr as u16), self.a);
+        let mut a = self.a;
+        self.write(0x0100 + (self.sptr as u16), &mut a);
         self.subtractStack();
         return 0;
     }
 
     //Stack register push 
     fn PHP(&mut self) -> u8{
-        self.write(0x0100 + self.sptr as u16, self.sr | Flags::B.bits | Flags::U.bits);
+        self.write(0x0100 + self.sptr as u16, &mut (self.sr | Flags::B.bits | Flags::U.bits));
         self.SetFlag(Flags::B, false);
         self.SetFlag(Flags::U, false);
         self.subtractStack();
@@ -1260,7 +1264,7 @@ impl CPU6502{
             self.a = (tmp & 0x00FF).to_be_bytes()[1];
         }
         else{
-            self.write(self.addr_absolute, (tmp & 0x00FF).to_be_bytes()[1]);
+            self.write(self.addr_absolute, &mut ((tmp & 0x00FF).to_be_bytes()[1]));
 
         }
         return 0;
@@ -1276,7 +1280,7 @@ impl CPU6502{
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
             self.a = (tmp & 0x00FF).to_be_bytes()[1];
         }else{
-            self.write(self.addr_absolute, (tmp & 0x00FF).to_be_bytes()[1]);
+            self.write(self.addr_absolute, &mut ((tmp & 0x00FF).to_be_bytes()[1]));
 
         }
         return 0;
@@ -1328,20 +1332,23 @@ impl CPU6502{
 
     //Store accumulator 
     fn STA(&mut self) -> u8{
-        self.write(self.addr_absolute, self.a);
+        let mut sr = self.a;
+        self.write(self.addr_absolute, &mut sr);
 
         return 0;
     }
 
     //Store X 
     fn STX(&mut self) -> u8{
-        self.write(self.addr_absolute, self.x);
+        let mut x = self.x;
+        self.write(self.addr_absolute, &mut x);
         return 0;
     }
 
     //Store Y 
     fn STY(&mut self) -> u8{
-        self.write(self.addr_absolute, self.y);
+        let mut y = self.y;
+        self.write(self.addr_absolute, &mut y);
         return 0;
     }
 

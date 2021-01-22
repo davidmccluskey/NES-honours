@@ -12,9 +12,17 @@ use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use uwl::StringStream;
 use std::fmt;
+use sdl2::Sdl;
+use std::cell::RefCell;
+use std::rc::Rc;
+use cartridge::Cartridge;
 
 pub mod bus;
 pub mod CPU6502;
+pub mod ppu;
+pub mod cartridge;
+pub mod mapper;
+pub mod mapper_0;
 
 static SCREEN_WIDTH : u32 = 1280;
 static SCREEN_HEIGHT : u32 = 720;
@@ -57,25 +65,12 @@ fn main() -> Result<(), String> {
     let mut font = ttf_context.load_font(font_path, 128)?;
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
-    let mut nOffset = 0x8000;
-
     let mut nes = CPU6502::CPU6502::new();
+    let mut cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/nestest.nes".to_string());
+    nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
-    let mut v: Vec<&str> = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA".rsplit(' ').collect();
-    v.reverse();
-    for c in v.iter() {
-        if c.to_string() != " " {
-            let z = u8::from_str_radix(c, 16).unwrap();
-            nes.bus.ram[nOffset] = z;
-        }
-        nOffset = nOffset + 1;
-    }
+    let disassembly = nes.disassemble(0x0000, 0xFFFF);
 
-    nes.bus.ram[0xFFFC] = 0x00;
-    nes.bus.ram[0xFFFD] = 0x80;
-
-    let mut disassembly = nes.disassemble(0x0000, 0xFFFF);
-    
     nes.reset();
 
     let mut count = 0;
@@ -83,7 +78,12 @@ fn main() -> Result<(), String> {
     'mainloop: loop {
         for event in sdl_context.event_pump()?.poll_iter() {
             match event {
-                Event::KeyDown {keycode: Some(Keycode::Space), ..} => {update(&mut nes); count = count + 1;},
+                Event::KeyDown {keycode: Some(Keycode::C), ..} => {
+                    update(&mut nes); count = count + 1;
+                },
+                Event::KeyDown{keycode: Some(Keycode::R), ..} => {
+                    nes.reset();
+                }
                 Event::KeyDown {keycode: Some(Keycode::Escape), ..} |
                 Event::Quit {..} => break 'mainloop,
                 _ => {}
@@ -174,11 +174,7 @@ fn main() -> Result<(), String> {
                     drawLine(rect!(900, 170 + (i * 50), 300, 20), &val, &mut canvas, &font, Color::WHITE);
                 }
             }
-        }
-
-
-
-
+        }        
         //canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.present();
     }
