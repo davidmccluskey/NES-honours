@@ -9,10 +9,10 @@ pub struct CPU6502 {
     pub bus: Bus,
     pub a: u8,		     // Accumulator Register
     pub x: u8,      	 // X Register
-    pub y: u8,               // Y Register
-    pub sptr: u8,	         // Stack Pointer
+    pub y: u8,           // Y Register
+    pub sptr: u8,	     // Stack Pointer
     pub pc: u16,	     // Program Counter
-    pub sr: u8,		         // Status Register
+    pub sr: u8,		     // Status Register
 
     fetched: u8,         //Fetched data
     addr_absolute: u16,  //Absolute address

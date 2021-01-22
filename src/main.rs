@@ -192,5 +192,4 @@ fn drawLine(rect: sdl2::rect::Rect, text: &str, canvas: &mut WindowCanvas, font:
 
 }
 
-#[cfg(test)]
-mod test;
+//#[cfg(test)]
