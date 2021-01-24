@@ -202,7 +202,7 @@ impl CPU6502{
             self.cycles = self.cycles + (add_cycle1 + add_cycle2);
         }
         self.cycles = self.cycles - 1;
-        
+        self.bus.clock();
     }
 
     pub fn complete(&mut self) -> bool {
@@ -957,7 +957,9 @@ impl CPU6502{
     fn BPL(&mut self) -> u8{
         if self.GetFlag(Flags::N) == 0 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;

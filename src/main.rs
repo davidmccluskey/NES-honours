@@ -11,11 +11,14 @@ use sdl2::video::Window;
 use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use uwl::StringStream;
+use sdl2::render::TextureAccess;
 use std::fmt;
 use sdl2::Sdl;
 use std::cell::RefCell;
 use std::rc::Rc;
 use cartridge::Cartridge;
+use sdl2::pixels::PixelFormatEnum;
+use ppu::*;
 
 pub mod bus;
 pub mod CPU6502;
@@ -60,7 +63,7 @@ fn main() -> Result<(), String> {
 
 
     let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
-    
+
     // Load a font
     let mut font = ttf_context.load_font(font_path, 128)?;
     font.set_style(sdl2::ttf::FontStyle::BOLD);
@@ -90,6 +93,8 @@ fn main() -> Result<(), String> {
             }
         }
         canvas.clear();
+        draw_sprite(&mut canvas, &mut nes);
+
         let pc = nes.pc;
         {
             drawLine(rect!(900, 10, 200, 20), "Status Registers: ", &mut canvas, &font, Color::WHITE);
@@ -190,6 +195,22 @@ fn drawLine(rect: sdl2::rect::Rect, text: &str, canvas: &mut WindowCanvas, font:
 
     canvas.copy(&texture.unwrap(), None, Some(rect));
 
+}
+
+fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502){
+    let frame_data = nes.bus.ppu.getFrame();
+    let texture_creator = canvas.texture_creator();
+    let mut tex = texture_creator
+    .create_texture(
+        PixelFormatEnum::RGB24,
+        TextureAccess::Streaming,
+        RENDER_WIDTH as u32,
+        RENDER_HEIGHT as u32,
+    ).unwrap();
+
+    tex.update(None, &frame_data, RENDER_WIDTH * 3).unwrap();
+    canvas.clear();
+    canvas.copy(&tex, None, None).unwrap();
 }
 
 //#[cfg(test)]
