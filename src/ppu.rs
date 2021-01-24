@@ -1,16 +1,10 @@
 use crate::cartridge::Cartridge;
 use crate::sdl2::pixels::Color;
-use crate::sdl2::render::Texture;
-use crate::sdl2::surface::Surface;
 
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::render::Canvas;
-use sdl2::render::TextureAccess;
-use sdl2::render::TextureCreator;
-use sdl2::video::WindowContext;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::vec::Vec;
+use rand::Rng;
+
 
 pub const RENDER_WIDTH: usize = 256;
 pub const RENDER_HEIGHT: usize = 240;
@@ -207,8 +201,11 @@ impl PPU {
 
     pub fn clock(&mut self) 
     {
-        println!("test?");
-        self.write_system_pixel(self.cycle, self.scanline, 1);
+        if rand::random() { // generates a boolean
+            self.write_system_pixel(self.cycle, self.scanline, 33);
+        }else {
+            self.write_system_pixel(self.cycle, self.scanline, 63);
+        }
         self.cycle = self.cycle + 1;
         if self.cycle >= 341 {
             self.cycle = 0;
