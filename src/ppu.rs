@@ -35,7 +35,7 @@ impl PPU {
             palette: [0; 32],
             frame_complete: false,
             palette_colours,
-            sprite_screen: [0; RENDER_SIZE],
+            sprite_screen: [62; RENDER_SIZE],
             // sprite_name_table: [sprite_name_table_1, sprite_name_table_2],
             // sprite_pattern_table: [sprite_pattern_table_1, sprite_pattern_table_2],
 

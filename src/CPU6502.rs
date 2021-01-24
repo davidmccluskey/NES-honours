@@ -875,7 +875,9 @@ impl CPU6502{
     fn BCC(&mut self) -> u8{
         if self.GetFlag(Flags::C) == 0 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;
@@ -889,7 +891,9 @@ impl CPU6502{
     fn BCS(&mut self) -> u8{
         if self.GetFlag(Flags::C) == 1 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;
@@ -903,7 +907,9 @@ impl CPU6502{
     fn BEQ(&mut self) -> u8{
         if self.GetFlag(Flags::Z) == 1 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;
@@ -927,7 +933,9 @@ impl CPU6502{
     fn BMI(&mut self) -> u8{
         if self.GetFlag(Flags::N) == 1 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;
@@ -995,7 +1003,9 @@ impl CPU6502{
     fn BVC(&mut self) -> u8{
         if self.GetFlag(Flags::V) == 0 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;
@@ -1009,7 +1019,9 @@ impl CPU6502{
     fn BVS(&mut self) -> u8{
         if self.GetFlag(Flags::V) == 1 {
             self.cycles = self.cycles + 1;
-            self.addr_absolute = self.pc + self.addr_relative;
+            let wrapped_pc = Wrapping(self.pc);
+            let wrapped_addr = Wrapping(self.addr_relative);
+            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
             if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
                 self.cycles = self.cycles + 1;

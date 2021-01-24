@@ -9,6 +9,7 @@ edition = "2018"
 bitflags = "1.2.1"
 uwl = "0.3.3"
 rand = "0.8.2"
+pixels = "0.2.0"
 
 [dependencies.sdl2]
 version = "0.34"

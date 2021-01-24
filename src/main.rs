@@ -309,7 +309,6 @@ fn main() -> Result<(), String> {
                 }
             }
         }
-        //canvas.set_draw_color(Color::RGB(0, 0, 0));
         canvas.present();
     }
     Ok(())
