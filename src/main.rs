@@ -1,7 +1,6 @@
 extern crate sdl2;
 #[macro_use]
 extern crate bitflags;
-use cartridge::Cartridge;
 use ppu::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -9,16 +8,12 @@ use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::TextureAccess;
-use sdl2::render::TextureQuery;
 use sdl2::render::WindowCanvas;
-use sdl2::video::Window;
-use sdl2::Sdl;
 use std::cell::RefCell;
-use std::fmt;
 use std::fmt::{Error, Write};
 use std::path::Path;
 use std::rc::Rc;
-use uwl::StringStream;
+use std::time::{Duration, Instant};
 
 pub mod CPU6502;
 pub mod bus;
@@ -60,6 +55,7 @@ fn writer<W: Write>(f: &mut W, s: &str) -> Result<(), Error> {
 }
 
 fn main() -> Result<(), String> {
+    let now = Instant::now();
     let sdl_context = sdl2::init()?;
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
@@ -90,6 +86,9 @@ fn main() -> Result<(), String> {
 
     let mut count = 0;
 
+    let mut emulation_run = false;
+    let mut time: f32 = 0.0;
+
     'mainloop: loop {
         for event in sdl_context.event_pump()?.poll_iter() {
             match event {
@@ -107,6 +106,12 @@ fn main() -> Result<(), String> {
                     nes.reset();
                 }
                 Event::KeyDown {
+                    keycode: Some(Keycode::Space),
+                    ..
+                } => {
+                    emulation_run = !emulation_run;
+                }
+                Event::KeyDown {
                     keycode: Some(Keycode::F),
                     ..
                 } => {
@@ -122,8 +127,19 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
+        if emulation_run == true {
+            if time > 0.0 {
+                time = time - now.elapsed().as_secs_f32();
+            } else {
+                time = time + (1.0 / 60.0);
+                while nes.bus.ppu.frame_complete == false {
+                    nes.clock();
+                }
+                nes.bus.ppu.frame_complete = false;
+            }
+        }
         canvas.clear();
-        draw_sprite(&mut canvas, &mut nes);
+        draw_sprite(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3));
 
         let pc = nes.pc;
         {
@@ -315,7 +331,7 @@ fn drawLine(
     canvas.copy(&texture.unwrap(), None, Some(rect));
 }
 
-fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502) {
+fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect) {
     let frame_data = nes.bus.ppu.getFrame();
     let texture_creator = canvas.texture_creator();
     let mut tex = texture_creator
@@ -329,7 +345,7 @@ fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502) {
 
     tex.update(None, &frame_data, RENDER_WIDTH).unwrap();
     canvas.clear();
-    canvas.copy(&tex, None, None).unwrap();
+    canvas.copy(&tex, None, Some(rect)).unwrap();
 }
 
 //#[cfg(test)]
