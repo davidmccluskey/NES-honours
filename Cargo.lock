@@ -13,12 +13,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8a318911dce53b5f1ca6539c44f5342c632269f0fa7ea3e35f32458c27a7c30"
 
 [[package]]
-name = "cc"
-version = "1.0.66"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c0496836a84f8d0495758516b8621a622beb77c0fed418570e50764093ced48"
-
-[[package]]
 name = "cfg-if"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -52,15 +46,6 @@ name = "libc"
 version = "0.2.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2448f6066e80e3bfc792e9c98bf705b4b0fc6e8ef5b43e5889aff0eaa9c58743"
-
-[[package]]
-name = "olc_pixel_game_engine"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61a531308b2d28f774e8e75d9e02d056888f2122e31dbd7c69955419d564dbfe"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -138,7 +123,6 @@ name = "source"
 version = "0.1.0"
 dependencies = [
  "bitflags",
- "olc_pixel_game_engine",
  "rand",
  "sdl2",
  "uwl",

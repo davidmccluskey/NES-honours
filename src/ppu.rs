@@ -19,8 +19,8 @@ pub struct PPU {
     palette_colours: [Color; 64],
 
     sprite_screen: [u8; RENDER_SIZE],
-    sprite_name_table: Option<Rc<RefCell<Tex>>>,
-    sprite_pattern_table: Option<Rc<RefCell<Tex>>>,
+    sprite_patterns: [u16; 8],
+    sprite_palettes: [u8; 8],
 
     scanline: u16,
     cycle: u16,
