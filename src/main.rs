@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::fmt::{Error, Write};
 use std::path::Path;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::{Instant};
 
 pub mod CPU6502;
 pub mod bus;
@@ -21,6 +21,7 @@ pub mod cartridge;
 pub mod mapper;
 pub mod mapper_0;
 pub mod ppu;
+pub mod textures;
 
 static SCREEN_WIDTH: u32 = 1280;
 static SCREEN_HEIGHT: u32 = 720;
@@ -60,7 +61,7 @@ fn main() -> Result<(), String> {
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
 
-    let font_path: &Path = Path::new("PressStart2P-Regular.ttf");
+    let font_path: &Path = Path::new("./assets/PressStart2P-Regular.ttf");
 
     let window = video_subsys
         .window(" ", SCREEN_WIDTH, SCREEN_HEIGHT)

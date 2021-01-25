@@ -1,10 +1,10 @@
 use crate::cartridge::Cartridge;
 use crate::sdl2::pixels::Color;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 use rand::Rng;
 
+use crate::textures::Tex;
 
 pub const RENDER_WIDTH: usize = 256;
 pub const RENDER_HEIGHT: usize = 240;
@@ -19,8 +19,8 @@ pub struct PPU {
     palette_colours: [Color; 64],
 
     sprite_screen: [u8; RENDER_SIZE],
-    // sprite_name_table: [Texture; 2],
-    // sprite_pattern_table: [Texture; 2],
+    sprite_name_table: Option<Rc<RefCell<Tex>>>,
+    sprite_pattern_table: Option<Rc<RefCell<Tex>>>,
 
     scanline: u16,
     cycle: u16,
@@ -36,8 +36,8 @@ impl PPU {
             frame_complete: false,
             palette_colours,
             sprite_screen: [62; RENDER_SIZE],
-            // sprite_name_table: [sprite_name_table_1, sprite_name_table_2],
-            // sprite_pattern_table: [sprite_pattern_table_1, sprite_pattern_table_2],
+            sprite_name_table: None,
+            sprite_pattern_table: None,
 
             scanline: 0,
             cycle: 0,
