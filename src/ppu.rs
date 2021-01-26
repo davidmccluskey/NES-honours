@@ -4,8 +4,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use rand::Rng;
 
-use crate::textures::Tex;
-
 pub const RENDER_WIDTH: usize = 256;
 pub const RENDER_HEIGHT: usize = 240;
 pub const RENDER_SIZE: usize = RENDER_WIDTH * RENDER_HEIGHT;
@@ -36,8 +34,8 @@ impl PPU {
             frame_complete: false,
             palette_colours,
             sprite_screen: [62; RENDER_SIZE],
-            sprite_name_table: None,
-            sprite_pattern_table: None,
+            sprite_patterns: [0; 8],
+            sprite_palettes: [0; 8],
 
             scanline: 0,
             cycle: 0,

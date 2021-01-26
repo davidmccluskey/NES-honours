@@ -21,7 +21,6 @@ pub mod cartridge;
 pub mod mapper;
 pub mod mapper_0;
 pub mod ppu;
-pub mod textures;
 
 static SCREEN_WIDTH: u32 = 1280;
 static SCREEN_HEIGHT: u32 = 720;
