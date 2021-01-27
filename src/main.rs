@@ -8,6 +8,8 @@ use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
 use sdl2::render::TextureAccess;
+use sdl2::render::Texture;
+
 use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
 use std::fmt::{Error, Write};
@@ -71,6 +73,19 @@ fn main() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+
+    let texture_creator = canvas.texture_creator();
+    let mut texture = {
+        let mut tex = texture_creator
+            .create_texture(
+                PixelFormatEnum::RGB24,
+                TextureAccess::Streaming,
+                RENDER_WIDTH as u32,
+                RENDER_HEIGHT as u32,
+            )
+            .unwrap();
+        unsafe { Box::new(std::mem::transmute(tex)) }
+    };
 
     // Load a font
     let mut font = ttf_context.load_font(font_path, 128)?;
@@ -140,7 +155,7 @@ fn main() -> Result<(), String> {
             }
         }
         canvas.clear();
-        draw_sprite(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3));
+        draw_sprite(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3), &mut texture);
 
         let pc = nes.pc;
         {
@@ -328,22 +343,12 @@ fn drawLine(
         .create_texture_from_surface(&surface.unwrap())
         .map_err(|e| e.to_string());
 
-    canvas.copy(&texture.unwrap(), None, Some(rect));
+    canvas.copy(&texture.unwrap(), None, Some(rect)).unwrap();
 }
 
-fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect) {
-    let frame_data = nes.bus.ppu.getFrame();
-    let texture_creator = canvas.texture_creator();
-    let mut tex = texture_creator
-        .create_texture(
-            PixelFormatEnum::RGB24,
-            TextureAccess::Streaming,
-            RENDER_WIDTH as u32,
-            RENDER_HEIGHT as u32,
-        )
-        .unwrap();
-
-    tex.update(None, &frame_data, RENDER_WIDTH).unwrap();
+fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture) {
+    let frame_data = nes.bus.ppu.render();
+    tex.update(None, &frame_data, RENDER_WIDTH * 3).unwrap();
     canvas.clear();
     canvas.copy(&tex, None, Some(rect)).unwrap();
 }
