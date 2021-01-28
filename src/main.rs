@@ -1,6 +1,8 @@
 extern crate sdl2;
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate bitfield;
 use ppu::*;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -41,7 +43,7 @@ fn update(nes: &mut CPU6502::CPU6502) {
     } {}
 }
 
-fn render_frame(nes: &mut CPU6502::CPU6502) {
+fn update_full_frame(nes: &mut CPU6502::CPU6502) {
     while {
         nes.clock();
         !nes.bus.ppu.frame_complete
@@ -73,9 +75,9 @@ fn main() -> Result<(), String> {
 
     let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
 
-    let texture_creator = canvas.texture_creator();
-    let mut texture = {
-        let mut tex = texture_creator
+    let tx1 = canvas.texture_creator();
+    let mut screen_texture: Box<sdl2::render::Texture> = {
+        let mut tex = tx1
             .create_texture(
                 PixelFormatEnum::RGB24,
                 TextureAccess::Streaming,
@@ -84,6 +86,32 @@ fn main() -> Result<(), String> {
             )
             .unwrap();
         unsafe { Box::new(std::mem::transmute(tex)) }
+    };
+
+    let tx2 = canvas.texture_creator();
+    let mut pattern_one: Box<sdl2::render::Texture> = {
+        let mut tex2 = tx2
+            .create_texture(
+                PixelFormatEnum::RGB24,
+                TextureAccess::Streaming,
+                128 as u32,
+                128 as u32,
+            )
+            .unwrap();
+        unsafe { Box::new(std::mem::transmute(tex2)) }
+    };
+
+    let tx3 = canvas.texture_creator();
+    let mut pattern_two: Box<sdl2::render::Texture> = {
+        let mut tex3 = tx3
+            .create_texture(
+                PixelFormatEnum::RGB24,
+                TextureAccess::Streaming,
+                128 as u32,
+                128 as u32,
+            )
+            .unwrap();
+        unsafe { Box::new(std::mem::transmute(tex3)) }
     };
 
     // Load a font
@@ -130,7 +158,7 @@ fn main() -> Result<(), String> {
                     keycode: Some(Keycode::F),
                     ..
                 } => {
-                    render_frame(&mut nes);
+                    update_full_frame(&mut nes);
                     nes.bus.ppu.frame_complete = false;
                     count = count + 1;
                 }
@@ -154,8 +182,6 @@ fn main() -> Result<(), String> {
             }
         }
         canvas.clear();
-        draw_sprite(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3), &mut texture);
-
         let pc = nes.pc;
         {
             drawLine(
@@ -165,7 +191,7 @@ fn main() -> Result<(), String> {
                 &font,
                 Color::WHITE,
             );
-            if nes.GetFlag(CPU6502::Flags::C) == 0 {
+            if nes.GetFlag(CPU6502::Flags::N) == 0 {
                 drawLine(rect!(900, 40, 20, 20), "N", &mut canvas, &font, Color::RED);
             } else {
                 drawLine(
@@ -305,7 +331,7 @@ fn main() -> Result<(), String> {
         );
         let mut i = 0;
 
-        for x in 0..50 {
+        for x in 0..20 {
             let val = (nes.pc + x) as u32;
             let end = disassembly.capacity() as u32;
             if val <= end {
@@ -324,6 +350,11 @@ fn main() -> Result<(), String> {
                 }
             }
         }
+
+        render_frame(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3), &mut screen_texture);
+        render_pattern_table(&mut canvas, &mut nes, rect!(900, 580, 128, 128), &mut pattern_one, 0);
+        render_pattern_table(&mut canvas, &mut nes, rect!(1030, 580, 128, 128), &mut pattern_two, 1);
+        
         canvas.present();
     }
     Ok(())
@@ -345,11 +376,23 @@ fn drawLine(
     canvas.copy(&texture.unwrap(), None, Some(rect)).unwrap();
 }
 
-fn draw_sprite(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture) {
+fn render_frame(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture) {
     let frame_data = nes.bus.ppu.render();
-    tex.update(None, &frame_data, RENDER_WIDTH * 3).unwrap();
-    canvas.clear();
+    tex.update(None, &frame_data, 256 * 3).unwrap();
     canvas.copy(&tex, None, Some(rect)).unwrap();
 }
+
+fn render_name_table(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture){
+    let frame_data = nes.bus.ppu.get_name_table(1);
+    tex.update(None, &frame_data, 256 * 3).unwrap();
+    canvas.copy(&tex, None, Some(rect)).unwrap();
+}
+
+fn render_pattern_table(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture, index: u8){
+    let frame_data = nes.bus.ppu.get_pattern_table(index, 1);
+    tex.update(None, &frame_data, 128 * 3).unwrap();
+    canvas.copy(&tex, None, Some(rect)).unwrap();
+}
+
 
 //#[cfg(test)]

@@ -56,7 +56,6 @@ impl instruction{
     }
 }
 
-#[allow(non_snake_case)]
 impl CPU6502{
     pub fn new() -> CPU6502 {
         let bus = Bus::new();
@@ -1061,7 +1060,7 @@ impl CPU6502{
         let tmp = (self.a - self.fetched) as u16;
         self.SetFlag(Flags::C, self.a >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);
         return 0;
     }
 
@@ -1070,7 +1069,7 @@ impl CPU6502{
         self.fetch();
         let tmp = (self.x - self.fetched) as u16;
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);    //Check
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);    //Check
         return 0;
     }
 
@@ -1080,7 +1079,7 @@ impl CPU6502{
         let tmp = (self.y - self.fetched) as u16;
         self.SetFlag(Flags::C, self.y >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);    //Check
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);    //Check
         return 0;
     }
 
@@ -1090,7 +1089,7 @@ impl CPU6502{
         let tmp = self.fetched - 1;
         self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);    //Check
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);    //Check
         return 0;
     }
 
@@ -1098,7 +1097,7 @@ impl CPU6502{
     fn DEX(&mut self) -> u8{
         self.x = self.x - 1;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) == 1);   //Check
+        self.SetFlag(Flags::N, (self.x & 0x80) > 1);   //Check
         return 0;
     }
 
@@ -1107,7 +1106,7 @@ impl CPU6502{
         self.y = self.y - 1;
         
         self.SetFlag(Flags::Z, self.y == 0x00);
-        self.SetFlag(Flags::N, (self.y & 0x80) == 0); //Check
+        self.SetFlag(Flags::N, (self.y & 0x80) > 0); //Check
         return 0;
     }
 
@@ -1117,7 +1116,7 @@ impl CPU6502{
         self.fetch();
         self.a = self.a ^ self.fetched;	
         self.SetFlag(Flags::Z, self.a == 0x00);
-        self.SetFlag(Flags::N, (self.a & 0x80) == 1); //Check
+        self.SetFlag(Flags::N, (self.a & 0x80) > 1); //Check
         return 1;
     }
 
@@ -1127,7 +1126,7 @@ impl CPU6502{
         let tmp = self.fetched + 1;
         self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);
         return 0;
     }
 
@@ -1135,7 +1134,7 @@ impl CPU6502{
     fn INX(&mut self) -> u8{
         self.x = self.x + 1;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.x & 0x80) > 1);
         return 0;
     }
 
@@ -1143,7 +1142,7 @@ impl CPU6502{
     fn INY(&mut self) -> u8{
         self.y = self.y + 1;
         self.SetFlag(Flags::Z, self.y == 0x00);
-        self.SetFlag(Flags::N, (self.y & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.y & 0x80) > 1);
         return 0;
     }
 
@@ -1171,7 +1170,7 @@ impl CPU6502{
         self.fetch();
         self.a = self.fetched;
         self.SetFlag(Flags::Z, self.a == 0x00);
-        self.SetFlag(Flags::N, (self.a & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.a & 0x80) > 1);
         return 1;
     }
 
@@ -1180,7 +1179,8 @@ impl CPU6502{
         self.fetch();
         self.x = self.fetched;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) == 1);
+        let tmp = self.x & 0x80;
+        self.SetFlag(Flags::N, tmp > 0);
         return 1;
     }
 

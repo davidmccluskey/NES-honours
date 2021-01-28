@@ -1,91 +1,206 @@
 use crate::cartridge::Cartridge;
-use crate::sdl2::pixels::Color;
 use std::cell::RefCell;
 use std::rc::Rc;
-use rand::Rng;
+use std::time::{Duration, SystemTime};
 
 pub const RENDER_WIDTH: usize = 256;
 pub const RENDER_HEIGHT: usize = 240;
 pub const RENDER_SIZE: usize = RENDER_WIDTH * RENDER_HEIGHT;
 pub const RENDER_FULL: usize = RENDER_SIZE * 3;
 
+//https://wiki.nesdev.com/w/index.php/PPU_registers
+bitfield!{
+    #[derive(Copy, Clone)]
+    pub struct Status(u8);
+    pub sprite_overflow, set_sprite_overflow:        5;
+    pub sprite_0, set_sprite_0:        6;
+    pub vertical_blank,          set_vblank:                 7;
+    pub get,             _:                      7,  0; // Full data
+}
+bitfield!{
+    #[derive(Copy, Clone)]
+    pub struct Mask(u8);
+    pub greyscale,              _: 0;
+    pub show_background_left,   _: 1;
+    pub show_sprites_left,      _: 2;
+    pub show_background,        _: 3;
+    pub show_sprites,           _: 4;
+    pub emphasize_red,          _: 5;
+    pub emphasize_green,        _: 6;
+    pub emphasize_blue,         _: 7;
+}
+bitfield!{
+    #[derive(Copy, Clone)]
+    pub struct Controller(u8);
+    pub nametable_high,          _: 1, 0;
+    pub nametable_low,          _:    2;
+    pub sprite_table,           _:    3;
+    pub background_table,       _:    4;
+    pub sprite_size,            _:    5;
+    pub master_slave,           _:    6;
+    pub generate_nmi,           _:    7;
+}
+
+
 pub struct PPU {
-    pub cartridge: Option<Rc<RefCell<Cartridge>>>,
-    pub name_table: [[u8; 2]; 1024],
-    pub palette: [u8; 32],
+    cartridge: Option<Rc<RefCell<Cartridge>>>,
+    name_table: [[u8; 1024]; 2],
+    palette_table: [u8; 32],
+    pattern_table: [[u8; 4096]; 2],
     pub frame_complete: bool,
 
     sprite_screen: [u8; 256 * 240],
-    sprite_name_table: [[u8; 128]; 128],
-    sprite_pattern_table: [[u8; 128]; 128],
+    sprite_name_table: [[u8; 256 * 240]; 2],
+    sprite_pattern_table: [[u8; 128 * 128]; 2],
 
     scanline: u16,
     cycle: u16,
+
+    controller: Controller,
+    mask: Mask,
+    status: Status,
+    address_latch: u8,
+    data_buffer: u8,
+    buffer_address: u16,
 }
 
 impl PPU {
     pub fn new() -> PPU {
         PPU {
             cartridge: None,
-            name_table: [[0; 2]; 1024],
-            palette: [0; 32],
+            name_table: [[0; 1024]; 2],
+            palette_table: [0; 32],
+            pattern_table: [[0; 4096]; 2],
             frame_complete: false,
             sprite_screen: [62; RENDER_SIZE],
-            sprite_name_table: [[0; 128]; 128],
-            sprite_pattern_table: [[0; 128]; 128],
-
+            sprite_name_table: [[0;256 * 240]; 2],
+            sprite_pattern_table: [[0;128 * 128]; 2],
             scanline: 0,
             cycle: 0,
+            controller: Controller(0),
+            mask: Mask(0),
+            status: Status(0),
+            address_latch: 0,
+            data_buffer: 0,
+            buffer_address: 0,
         }
     }
 
-    pub fn cpuRead(&mut self, addr: u16, _readOnly: bool) -> u8 {
-        let data: u8 = 0x00;
+    pub fn cpu_read(&mut self, addr: u16, _readOnly: bool) -> u8 {
+        let mut data: u8 = 0x00;
         match addr {
             0x0000 => (), //Control
             0x0001 => (), //Mask
-            0x0002 => (), //Status
+            0x0002 => {   //Status
+                self.status.set_vblank(true);
+                data = (self.status.get() & 0xE0) | (self.data_buffer & 0x1F);
+                self.status.set_vblank(false);
+                self.address_latch = 0; 
+            },
             0x0003 => (), //OAM Address
             0x0004 => (), //OAM Data
             0x0005 => (), //Scroll
             0x0006 => (), //PPU Address
-            0x0007 => (), //PPU Data
+            0x0007 => {   //PPU Data
+                data = self.data_buffer;
+                self.data_buffer = self.ppu_read(self.buffer_address, false);
+
+                if self.buffer_address > 0x3F00{
+                    data = self.data_buffer;
+                }
+            }, 
 
             _ => (), //required by rust
         }
-        return 0;
+        return data;
     }
-    pub fn cpuWrite(&mut self, addr: u16, data: u8) {
-        let data: u8 = 0x00;
+    pub fn cpu_write(&mut self, addr: u16, data: &mut u8) {
         match addr {
-            0x0000 => (), //Control
-            0x0001 => (), //Mask
+            0x0000 =>  self.controller = Controller(*data), //Control
+            0x0001 => self.mask = Mask(*data), //Mask
             0x0002 => (), //Status
             0x0003 => (), //OAM Address
             0x0004 => (), //OAM Data
             0x0005 => (), //Scroll
-            0x0006 => (), //PPU Address
-            0x0007 => (), //PPU Data
+            0x0006 => 
+            {
+                if self.address_latch == 0{
+                    self.buffer_address = (self.buffer_address & 0x00FF) | (*data as u16) << 8; //KEEP AN EYE ON THIS
+                    self.address_latch = 1;
+                }else
+                {
+                    self.buffer_address = (self.buffer_address & 0xFF00) | *data as u16;
+                    self.address_latch = 0;
+                }
+            }, //PPU Address
+            0x0007 => {
+                self.ppu_write(addr, data);
+            }, //PPU Data
 
             _ => (), //required by rust
         }
     }
-    pub fn ppuRead(&mut self, mut addr: u16, _readOnly: bool) -> u8 {
+    pub fn ppu_read(&mut self, mut addr: u16, _readOnly: bool) -> u8 {
         let mut data: u8 = 0x00;
         addr &= 0x3FFF;
         if let Some(ref c) = self.cartridge {
-            if c.borrow_mut().ppu_read(addr, &mut data) {}
+            if c.borrow_mut().ppu_read(addr, &mut data)
+            {
+                //Should always be false
+
+            }else if addr >= 0x0000 && addr <= 0x1FFF
+            {
+                //Pattern memory
+                //First index chooses whether it's the left or the right pattern table, second is index within that table 
+                let first_index = ((addr & 0x1000) >> 12).to_be_bytes()[1] as usize;
+                let second_index = (addr & 0x0FFF) as usize;
+                data = self.pattern_table[first_index][second_index];
+            }else if addr >= 0x2000 && addr <= 0x3EFF
+            {
+                //Nametable memory
+            }else if addr >= 0x3F00 && addr <= 0x3FFF
+            {
+                //Palette memory
+                addr = addr & 0x001F;
+                if addr == 0x0010 {addr = 0x0000}
+                if addr == 0x0014 {addr = 0x0004}
+                if addr == 0x0018 {addr = 0x0008}
+                if addr == 0x001C {addr = 0x000C}
+                let addr_u8 =  addr.to_be_bytes()[1];
+                data = self.palette_table[addr_u8 as usize];
+            }
         }
 
         return data;
     }
-    pub fn ppuWrite(&mut self, mut addr: u16, data: &mut u8) {
+    pub fn ppu_write(&mut self, mut addr: u16, data: &mut u8) {
         addr &= 0x3FFF;
         if let Some(ref c) = self.cartridge {
-            if c.borrow_mut().ppu_write(addr, data) {}
+            if c.borrow_mut().ppu_write(addr, data)
+            {
+                //Should always be false
+            }else if addr >= 0x0000 && addr <= 0x1FFF
+            {
+                //Pattern memory, usually a ROM however some games need to write to it
+                let first_index = ((addr & 0x1000) >> 12).to_be_bytes()[1] as usize;
+                self.pattern_table[first_index][(addr & 0x0FFF) as usize] = *data;
+            }else if addr >= 0x2000 && addr <= 0x3EFF
+            {
+                //Nametable memory
+            }else if addr >= 0x3F00 && addr <= 0x3FFF
+            {
+                //Palette memory
+                addr = addr & 0x001F;
+                if addr == 0x0010 {addr = 0x0000}
+                if addr == 0x0014 {addr = 0x0004}
+                if addr == 0x0018 {addr = 0x0008}
+                if addr == 0x001C {addr = 0x000C}
+                let addr_u8 =  addr.to_be_bytes()[1];
+                self.palette_table[addr_u8 as usize] = *data;
+            }
         }
     }
-    pub fn connectCartridge(&mut self, cartridge: Rc<RefCell<Cartridge>>) {
+    pub fn connect_cartridge(&mut self, cartridge: Rc<RefCell<Cartridge>>) {
         self.cartridge = Some(cartridge);
     }
 
@@ -101,36 +216,72 @@ impl PPU {
         return ret;
     }
 
-    // pub fn getNametable(&mut self, index: usize) -> &Texture
-    // {
-    //     return &self.sprite_name_table[index];
-    // }
+    pub fn get_name_table(&mut self, index: usize) -> [u8; 256 * 240] {
+        return self.sprite_name_table[index];
+    }
 
-    // pub fn getPatterntable(&mut self, index: usize) -> &Texture
-    // {
-    //     return &self.sprite_pattern_table[index];
-    // }
-    fn write_system_pixel(&mut self, x: u16, y: u16, c: SystemColor) {
+    pub fn get_pattern_table(&mut self, index: u8, palette: u8) -> [u8; 128 * 128] {
+        for tile_y in 0..16 {
+            for tile_x in 0..16 {
+                let offset: u16 = tile_y * 256 + tile_x * 16;
+
+                for row in 0..8 {
+                    let addr: u16 = index as u16 * 0x1000 + offset + row;
+                    let mut tile_ls = self.ppu_read(addr, false);
+                    let mut tile_ms = self.ppu_read(addr + 8, false);
+
+                    for column in 0..8 {
+                        let pixel = (tile_ls & 0x01) + (tile_ms & 0x01);
+                        tile_ls = tile_ls >> 1;
+                        tile_ms = tile_ms >> 1;
+
+                        let x = tile_x * 8 + (7 - column);
+                        let y = tile_y * 8 + row;
+                        let colour = self.get_colour(palette, pixel);
+                        self.write_pattern_pixel(x, y, colour, index as usize);
+                    }
+                }
+            }
+        }
+        return self.sprite_pattern_table[index as usize];
+    }
+
+    pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8{
+        let addr:u16 = 0x3F00 + (palette as u16 * 4) + pixel as u16;
+        let i = self.ppu_read(addr, false);
+        return i;
+    }
+
+    fn draw_pixel(&mut self, x: u16, y: u16, c: SystemColor) {
         if x >= 256 || y >= 240 {
             return;
         }
         let i = (x + 256 * y) as usize;
         self.sprite_screen[i] = c;
     }
-
-    pub fn clock(&mut self)
+    fn write_nametable_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) 
     {
-        if rand::random() { // generates a boolean
-            self.write_system_pixel(self.cycle, self.scanline, 33);
-        }else {
-            self.write_system_pixel(self.cycle, self.scanline, 63);
+        let i = (x + 256 * y) as usize;
+        self.sprite_pattern_table[index][i] = c;
+    }
+    fn write_pattern_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) 
+    {
+        let i = (x + 128 * y) as usize;
+        self.sprite_pattern_table[index][i] = c;
+    }
+    pub fn clock(&mut self) {
+        if rand::random() {
+            // generates a boolean
+            self.draw_pixel(self.cycle, self.scanline, 61);
+        } else {
+            self.draw_pixel(self.cycle, self.scanline, 63);
         }
         self.cycle = self.cycle + 1;
         if self.cycle >= 341 {
             self.cycle = 0;
             self.scanline = self.scanline + 1;
 
-            if self.scanline >= 261{
+            if self.scanline >= 261 {
                 self.scanline = 0;
                 self.frame_complete = true;
             }

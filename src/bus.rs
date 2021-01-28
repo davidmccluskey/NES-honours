@@ -36,7 +36,7 @@ impl Bus{
         }
         else if addr >= 0x2000 && addr <= 0x3FFF
         {
-          self.ppu.cpuWrite(addr & 0x0007, *data)
+          self.ppu.cpu_write(addr & 0x0007, data)
         }
     }
 
@@ -57,7 +57,7 @@ impl Bus{
       }
       else if addr >= 0x2000 && addr <= 0x3FFF
       {
-        data = self.ppu.cpuRead(addr & 0x0007, _readOnly)
+        data = self.ppu.cpu_read(addr & 0x0007, _readOnly)
       }
     }
 
@@ -66,7 +66,7 @@ impl Bus{
 
   pub fn connect_cartridge(&mut self, cartridge:  Rc<RefCell<Cartridge>>){
     self.cartridge = Some(cartridge.clone());
-    self.ppu.connectCartridge(cartridge.clone());
+    self.ppu.connect_cartridge(cartridge.clone());
   } 
   pub fn clock(&mut self){
     self.ppu.clock();
