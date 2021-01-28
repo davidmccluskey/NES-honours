@@ -1068,6 +1068,7 @@ impl CPU6502{
     fn CPX(&mut self) -> u8{
         self.fetch();
         let tmp = (self.x - self.fetched) as u16;
+        self.SetFlag(Flags::C, self.x >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.SetFlag(Flags::N, (tmp & 0x0080) > 0);    //Check
         return 0;
@@ -1095,7 +1096,11 @@ impl CPU6502{
 
     //Decrement X registe
     fn DEX(&mut self) -> u8{
-        self.x = self.x - 1;
+        if self.x == 0{
+            self.x = 255
+        }else {
+            self.x = self.x - 1;
+        }
         self.SetFlag(Flags::Z, self.x == 0x00);
         self.SetFlag(Flags::N, (self.x & 0x80) > 0);   //Check
         return 0;
@@ -1103,7 +1108,11 @@ impl CPU6502{
 
     //Decrement Y register
     fn DEY(&mut self) -> u8{
-        self.y = self.y - 1;
+        if self.y == 0{
+            self.y = 255
+        }else {
+            self.y = self.y - 1;
+        }
         
         self.SetFlag(Flags::Z, self.y == 0x00);
         self.SetFlag(Flags::N, (self.y & 0x80) > 0); //Check
