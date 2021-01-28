@@ -844,7 +844,7 @@ impl CPU6502{
         self.a = self.a & self.fetched;
         self.SetFlag(Flags::Z, self.a == 0x00);
 
-        if self.a & 0x80 == 1{
+        if self.a & 0x80 > 0 {
             self.SetFlag(Flags::N, true);
         }else{
             self.SetFlag(Flags::N, false)
@@ -859,7 +859,7 @@ impl CPU6502{
         let temp = self.fetched << 1;
         self.SetFlag(Flags::C, (tmp & 0xFF00) > 0);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x00);
-        self.SetFlag(Flags::N, tmp & 0x80 == 1);
+        self.SetFlag(Flags::N, tmp & 0x80 > 0);
 
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
             self.a = temp & 0x00FF;
@@ -923,8 +923,8 @@ impl CPU6502{
         self.fetch();
         let tmp = self.a & self.fetched;
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x00);
-        self.SetFlag(Flags::N, self.fetched & (1 << 7) == 0);
-        self.SetFlag(Flags::V, self.fetched & (1 << 6) == 0);
+        self.SetFlag(Flags::N, self.fetched & (1 << 7) > 0);
+        self.SetFlag(Flags::V, self.fetched & (1 << 6) > 0);
         return 0;
     }
 
@@ -1060,7 +1060,7 @@ impl CPU6502{
         let tmp = (self.a - self.fetched) as u16;
         self.SetFlag(Flags::C, self.a >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);
         return 0;
     }
 
@@ -1069,7 +1069,7 @@ impl CPU6502{
         self.fetch();
         let tmp = (self.x - self.fetched) as u16;
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);    //Check
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);    //Check
         return 0;
     }
 
@@ -1079,7 +1079,7 @@ impl CPU6502{
         let tmp = (self.y - self.fetched) as u16;
         self.SetFlag(Flags::C, self.y >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);    //Check
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);    //Check
         return 0;
     }
 
@@ -1089,7 +1089,7 @@ impl CPU6502{
         let tmp = self.fetched - 1;
         self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);    //Check
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);    //Check
         return 0;
     }
 
@@ -1097,7 +1097,7 @@ impl CPU6502{
     fn DEX(&mut self) -> u8{
         self.x = self.x - 1;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) > 1);   //Check
+        self.SetFlag(Flags::N, (self.x & 0x80) > 0);   //Check
         return 0;
     }
 
@@ -1116,7 +1116,7 @@ impl CPU6502{
         self.fetch();
         self.a = self.a ^ self.fetched;	
         self.SetFlag(Flags::Z, self.a == 0x00);
-        self.SetFlag(Flags::N, (self.a & 0x80) > 1); //Check
+        self.SetFlag(Flags::N, (self.a & 0x80) > 0); //Check
         return 1;
     }
 
@@ -1126,7 +1126,7 @@ impl CPU6502{
         let tmp = self.fetched + 1;
         self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) > 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);
         return 0;
     }
 
@@ -1134,7 +1134,7 @@ impl CPU6502{
     fn INX(&mut self) -> u8{
         self.x = self.x + 1;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) > 1);
+        self.SetFlag(Flags::N, (self.x & 0x80) > 0);
         return 0;
     }
 
@@ -1142,7 +1142,7 @@ impl CPU6502{
     fn INY(&mut self) -> u8{
         self.y = self.y + 1;
         self.SetFlag(Flags::Z, self.y == 0x00);
-        self.SetFlag(Flags::N, (self.y & 0x80) > 1);
+        self.SetFlag(Flags::N, (self.y & 0x80) > 0);
         return 0;
     }
 
@@ -1170,7 +1170,7 @@ impl CPU6502{
         self.fetch();
         self.a = self.fetched;
         self.SetFlag(Flags::Z, self.a == 0x00);
-        self.SetFlag(Flags::N, (self.a & 0x80) > 1);
+        self.SetFlag(Flags::N, (self.a & 0x80) > 0);
         return 1;
     }
 
@@ -1179,8 +1179,7 @@ impl CPU6502{
         self.fetch();
         self.x = self.fetched;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        let tmp = self.x & 0x80;
-        self.SetFlag(Flags::N, tmp > 0);
+        self.SetFlag(Flags::N, (self.x & 0x80) > 0);
         return 1;
     }
 
@@ -1189,7 +1188,7 @@ impl CPU6502{
         self.fetch();
         self.y = self.fetched;
         self.SetFlag(Flags::Z, self.y == 0x00);
-        self.SetFlag(Flags::N, (self.y & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.y & 0x80) > 0);
         return 1;
     }
 
@@ -1199,7 +1198,7 @@ impl CPU6502{
         self.SetFlag(Flags::C, (self.fetched & 0x0001) == 1);
         let tmp = self.fetched >> 1;	
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
             self.a = tmp & 0x00FF;
         }
@@ -1227,7 +1226,7 @@ impl CPU6502{
         self.fetch();
         self.a = self.a | self.fetched;
         self.SetFlag(Flags::Z, self.a == 0x00);
-        self.SetFlag(Flags::N, (self.a & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.a & 0x80) > 0);
         return 1;
     }
 
@@ -1255,7 +1254,7 @@ impl CPU6502{
         self.a = self.read(data);
 
         self.SetFlag(Flags::Z, self.a == 0x000);
-        self.SetFlag(Flags::N, (self.a & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.a & 0x80) > 0);
         return 0;
     }
 
@@ -1273,7 +1272,7 @@ impl CPU6502{
         let tmp = (self.fetched << 1) as u16 | (self.GetFlag(Flags::C)) as u16;
         self.SetFlag(Flags::C, (tmp & 0xFF00) == 1);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
             self.a = (tmp & 0x00FF).to_be_bytes()[1];
         }
@@ -1290,7 +1289,7 @@ impl CPU6502{
         let tmp = ((self.GetFlag(Flags::C) << 7) | (self.fetched >> 1)) as u16;
         self.SetFlag(Flags::C, (self.fetched & 0x01) == 1);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x00);
-        self.SetFlag(Flags::N, (tmp & 0x0080) == 1);
+        self.SetFlag(Flags::N, (tmp & 0x0080) > 0);
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
             self.a = (tmp & 0x00FF).to_be_bytes()[1];
         }else{
@@ -1370,7 +1369,7 @@ impl CPU6502{
     fn TAX(&mut self) -> u8{
         self.x = self.a;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.x & 0x80) > 0);
         
         return 0;
     }
@@ -1379,7 +1378,7 @@ impl CPU6502{
     fn TAY(&mut self) -> u8{
         self.y = self.a;
         self.SetFlag(Flags::Z, self.y == 0x00);
-        self.SetFlag(Flags::N, (self.y & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.y & 0x80) > 0);
 
         return 0;
     }
@@ -1388,7 +1387,7 @@ impl CPU6502{
     fn TSX(&mut self) -> u8{
         self.x = self.sptr;
         self.SetFlag(Flags::Z, self.x == 0x00);
-        self.SetFlag(Flags::N, (self.x & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.x & 0x80) > 0);
 
         return 0;
     }
@@ -1397,7 +1396,7 @@ impl CPU6502{
     fn TXA(&mut self) -> u8{
         self.a = self.x;
         self.SetFlag(Flags::Z, self.a == 0x00);
-        self.SetFlag(Flags::N, (self.a & 0x80) == 1);
+        self.SetFlag(Flags::N, (self.a & 0x80) > 0);
         return 0;
     }
 
@@ -1411,7 +1410,7 @@ impl CPU6502{
     fn TYA(&mut self) -> u8{
         self.a = self.y;
 	    self.SetFlag(Flags::Z, self.a == 0x00);
-	    self.SetFlag(Flags::N, (self.a & 0x80) == 1);
+	    self.SetFlag(Flags::N, (self.a & 0x80) > 1);
         return 0;
     }
 
