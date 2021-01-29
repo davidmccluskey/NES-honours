@@ -19,11 +19,11 @@ impl Mapper for Mapper0 {
         if addr >= 0x8000 && addr <= 0xFFFF {
             if self.n_prg_banks > 1 
             {
-                let mut m_addr = (addr & 0x7FFF) as u32;
+                let m_addr = (addr & 0x7FFF) as u32;
                 *mapped_addr = m_addr;
             }else
             {
-                let mut m_addr = (addr & 0x3FFF) as u32;
+                let m_addr = (addr & 0x3FFF) as u32;
                 *mapped_addr = m_addr;
             }
             return true;

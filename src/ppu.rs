@@ -108,6 +108,7 @@ impl PPU {
                 if self.buffer_address > 0x3F00{
                     data = self.data_buffer;
                 }
+                self.buffer_address += 1;
             }, 
 
             _ => (), //required by rust
@@ -122,7 +123,7 @@ impl PPU {
             0x0003 => (), //OAM Address
             0x0004 => (), //OAM Data
             0x0005 => (), //Scroll
-            0x0006 => 
+            0x0006 =>     //PPU Address
             {
                 if self.address_latch == 0{
                     self.buffer_address = (self.buffer_address & 0x00FF) | (*data as u16) << 8; //KEEP AN EYE ON THIS
@@ -132,10 +133,11 @@ impl PPU {
                     self.buffer_address = (self.buffer_address & 0xFF00) | *data as u16;
                     self.address_latch = 0;
                 }
-            }, //PPU Address
-            0x0007 => {
+            }, 
+            0x0007 => {  //PPU Data
                 self.ppu_write(addr, data);
-            }, //PPU Data
+                self.buffer_address += 1;
+            }, 
 
             _ => (), //required by rust
         }
@@ -147,20 +149,20 @@ impl PPU {
             if c.borrow_mut().ppu_read(addr, &mut data)
             {
                 //Should always be false
-
-            }else if addr >= 0x0000 && addr <= 0x1FFF
-            {
-                //Pattern memory
+            }
+            else if addr >= 0x0000 && addr <= 0x1FFF
+            {   //Pattern memory
                 //First index chooses whether it's the left or the right pattern table, second is index within that table 
                 let first_index = ((addr & 0x1000) >> 12).to_be_bytes()[1] as usize;
                 let second_index = (addr & 0x0FFF) as usize;
                 data = self.pattern_table[first_index][second_index];
-            }else if addr >= 0x2000 && addr <= 0x3EFF
-            {
-                //Nametable memory
-            }else if addr >= 0x3F00 && addr <= 0x3FFF
-            {
-                //Palette memory
+            }
+            else if addr >= 0x2000 && addr <= 0x3EFF
+            {   //Nametable memory
+                
+            }
+            else if addr >= 0x3F00 && addr <= 0x3FFF
+            {   //Palette memory
                 addr = addr & 0x001F;
                 if addr == 0x0010 {addr = 0x0000}
                 if addr == 0x0014 {addr = 0x0004}

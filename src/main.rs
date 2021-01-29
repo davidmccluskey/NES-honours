@@ -389,8 +389,8 @@ fn render_name_table(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect
 }
 
 fn render_pattern_table(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture, index: u8){
-    let frame_data = nes.bus.ppu.get_pattern_table(index, 1);
-    tex.update(None, &frame_data, 128 * 3).unwrap();
+    let frame_data = nes.bus.ppu.get_pattern_table(index, 0);
+    tex.update(None, &frame_data, 128).unwrap();
     canvas.copy(&tex, None, Some(rect)).unwrap();
 }
 

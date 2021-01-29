@@ -132,9 +132,8 @@ impl Cartridge {
         if self.mapper.cpu_mapper_read(addr, &mut mapped_addr){
             *data = self.vec_prg_memory[mapped_addr as usize];
             return true;
-        }else{
-            return false;
         }
+        return false;
     }
 
     pub fn ppu_read(&mut self, addr: u16, data: &mut u8) -> bool {

@@ -1057,7 +1057,9 @@ impl CPU6502{
     //Compare Accumulator
     fn CMP(&mut self) -> u8{
         self.fetch();
-        let tmp = (self.a - self.fetched) as u16;
+        let tmp_a = Wrapping(self.a as u16);
+        let tmp_fetched = Wrapping(self.fetched as u16);
+        let tmp = (tmp_a - tmp_fetched).0;
         self.SetFlag(Flags::C, self.a >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.SetFlag(Flags::N, (tmp & 0x0080) > 0);
@@ -1067,7 +1069,9 @@ impl CPU6502{
     //Compare X register 
     fn CPX(&mut self) -> u8{
         self.fetch();
-        let tmp = (self.x - self.fetched) as u16;
+        let tmp_x = Wrapping(self.x as u16);
+        let tmp_fetched = Wrapping(self.fetched as u16);
+        let tmp = (tmp_x - tmp_fetched).0;
         self.SetFlag(Flags::C, self.x >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.SetFlag(Flags::N, (tmp & 0x0080) > 0);    //Check
@@ -1141,7 +1145,11 @@ impl CPU6502{
 
     //Increment X reg
     fn INX(&mut self) -> u8{
-        self.x = self.x + 1;
+        if self.x == 255{
+            self.x = 0;
+        }else{
+            self.x = self.x - 1;
+        }
         self.SetFlag(Flags::Z, self.x == 0x00);
         self.SetFlag(Flags::N, (self.x & 0x80) > 0);
         return 0;
@@ -1149,7 +1157,11 @@ impl CPU6502{
 
     //Increment Y reg
     fn INY(&mut self) -> u8{
-        self.y = self.y + 1;
+        if self.y == 255{
+            self.y = 0
+        }else {
+            self.y = self.y - 1;
+        }
         self.SetFlag(Flags::Z, self.y == 0x00);
         self.SetFlag(Flags::N, (self.y & 0x80) > 0);
         return 0;
@@ -1316,9 +1328,11 @@ impl CPU6502{
         self.sr &= Flags::U.bits;
 
         self.sptr = self.sptr + 1;
-        self.pc = self.read(0x0100 + self.sptr as u16) as u16;
+        let sptr = self.sptr as u16;
+        self.pc = self.read(0x0100 + sptr) as u16;
         self.sptr = self.sptr + 1;
-        self.pc |= (self.read(0x0100 + self.sptr as u16) as u16) << 8;
+        let sptr = self.sptr as u16;
+        self.pc |= (self.read(0x0100 + sptr as u16) as u16) << 8;
 
         return 0;
     }

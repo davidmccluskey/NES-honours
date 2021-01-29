@@ -27,11 +27,9 @@ impl Bus{
   {
     if let Some(ref c) = self.cartridge 
     {
-        if c.borrow_mut().cpu_write(addr, data){
-
-        }    
-        else if addr >= 0x0000 && addr <= 0x1FFF 
+        if addr >= 0x0000 && addr <= 0x1FFF 
         {
+          let tmp = [addr as usize & 0x07FF];
           self.ram[addr as usize & 0x07FF] = *data;
         }
         else if addr >= 0x2000 && addr <= 0x3FFF
