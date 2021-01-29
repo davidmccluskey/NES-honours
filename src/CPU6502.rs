@@ -1148,7 +1148,7 @@ impl CPU6502{
         if self.x == 255{
             self.x = 0;
         }else{
-            self.x = self.x - 1;
+            self.x = self.x + 1;
         }
         self.SetFlag(Flags::Z, self.x == 0x00);
         self.SetFlag(Flags::N, (self.x & 0x80) > 0);
@@ -1160,7 +1160,7 @@ impl CPU6502{
         if self.y == 255{
             self.y = 0
         }else {
-            self.y = self.y - 1;
+            self.y = self.y + 1;
         }
         self.SetFlag(Flags::Z, self.y == 0x00);
         self.SetFlag(Flags::N, (self.y & 0x80) > 0);
