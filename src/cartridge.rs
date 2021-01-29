@@ -85,7 +85,7 @@ impl Cartridge {
         }else if file_type == 1
         {
             let prg: usize = cartridge_header.prg_rom_pages as usize;
-            let prg_size = prg * 16384; //CHECK CORRECT
+            let prg_size = prg * 16384;
             vec_prg_memory.resize(prg_size, 0);
             file.read_exact(&mut vec_prg_memory)?;
 
