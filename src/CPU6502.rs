@@ -1081,7 +1081,9 @@ impl CPU6502{
     //Compare Y register
     fn CPY(&mut self) -> u8{
         self.fetch();
-        let tmp = (self.y - self.fetched) as u16;
+        let tmp_y = Wrapping(self.y as u16);
+        let tmp_fetched = Wrapping(self.fetched as u16);
+        let tmp = (tmp_y - tmp_fetched).0;
         self.SetFlag(Flags::C, self.y >= self.fetched);
         self.SetFlag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.SetFlag(Flags::N, (tmp & 0x0080) > 0);    //Check

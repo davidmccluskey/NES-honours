@@ -135,7 +135,7 @@ impl PPU {
                 }
             }, 
             0x0007 => {  //PPU Data
-                self.ppu_write(addr, data);
+                self.ppu_write(self.buffer_address, data);
                 self.buffer_address += 1;
             }, 
 
@@ -222,7 +222,7 @@ impl PPU {
         return self.sprite_name_table[index];
     }
 
-    pub fn get_pattern_table(&mut self, index: u8, palette: u8) -> [u8; 128 * 128] {
+    pub fn get_pattern_table(&mut self, index: u8, palette: u8) -> [u8; (128 * 128) * 3] {
         for tile_y in 0..16 {
             for tile_x in 0..16 {
                 let offset: u16 = tile_y * 256 + tile_x * 16;
@@ -245,7 +245,19 @@ impl PPU {
                 }
             }
         }
-        return self.sprite_pattern_table[index as usize];
+        return self.render_palette(index);
+    }
+
+    pub fn render_palette(&self, index: u8) -> [u8; (128 * 128) * 3] {
+        let mut ret = [0; (128 * 128) * 3];
+        for i in 0..(128 * 128) {
+            let c = self.sprite_pattern_table[index as usize][i];
+            let (r, g, b) = PALETTE[c as usize];
+            ret[i * 3 + 0] = r;
+            ret[i * 3 + 1] = g;
+            ret[i * 3 + 2] = b;
+        }
+        return ret;
     }
 
     pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8{
@@ -273,7 +285,6 @@ impl PPU {
     }
     pub fn clock(&mut self) {
         if rand::random() {
-            // generates a boolean
             self.draw_pixel(self.cycle, self.scanline, 61);
         } else {
             self.draw_pixel(self.cycle, self.scanline, 63);
