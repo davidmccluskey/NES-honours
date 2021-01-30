@@ -73,7 +73,6 @@ impl Bus{
     self.ppu.clock();
     self.ppu.clock();
     self.ppu.clock();
-
   }
 
   pub fn reset(&mut self){

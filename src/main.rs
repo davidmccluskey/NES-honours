@@ -54,10 +54,6 @@ fn update_full_frame(nes: &mut CPU6502::CPU6502) {
     } {}
 }
 
-fn writer<W: Write>(f: &mut W, s: &str) -> Result<(), Error> {
-    f.write_str(s)
-}
-
 fn main() -> Result<(), String> {
     let now = Instant::now();
     let sdl_context = sdl2::init()?;
@@ -119,8 +115,7 @@ fn main() -> Result<(), String> {
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
     let mut nes = CPU6502::CPU6502::new();
-    let mut cartridge =
-        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/nestest.nes".to_string());
+    let mut cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
     let disassembly = nes.disassemble(0x0000, 0xFFFF);
@@ -352,8 +347,8 @@ fn main() -> Result<(), String> {
         }
 
         render_frame(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3), &mut screen_texture);
-        render_pattern_table(&mut canvas, &mut nes, rect!(900, 580, 128, 128), &mut pattern_one, 0);
-        render_pattern_table(&mut canvas, &mut nes, rect!(1030, 580, 128, 128), &mut pattern_two, 1);
+        render_pattern_table(&mut canvas, &mut nes, rect!(900, 200, 256, 256), &mut pattern_one, 0);
+        //render_pattern_table(&mut canvas, &mut nes, rect!(1030, 580, 256, 256), &mut pattern_two, 1);
         
         canvas.present();
     }

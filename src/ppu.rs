@@ -9,7 +9,7 @@ pub const RENDER_SIZE: usize = RENDER_WIDTH * RENDER_HEIGHT;
 pub const RENDER_FULL: usize = RENDER_SIZE * 3;
 
 //https://wiki.nesdev.com/w/index.php/PPU_registers
-bitfield!{
+bitfield! {
     #[derive(Copy, Clone)]
     pub struct Status(u8);
     pub sprite_overflow, set_sprite_overflow:        5;
@@ -17,7 +17,7 @@ bitfield!{
     pub vertical_blank,          set_vblank:                 7;
     pub get,             _:                      7,  0; // Full data
 }
-bitfield!{
+bitfield! {
     #[derive(Copy, Clone)]
     pub struct Mask(u8);
     pub greyscale,              _: 0;
@@ -29,7 +29,7 @@ bitfield!{
     pub emphasize_green,        _: 6;
     pub emphasize_blue,         _: 7;
 }
-bitfield!{
+bitfield! {
     #[derive(Copy, Clone)]
     pub struct Controller(u8);
     pub nametable_high,          _: 1, 0;
@@ -40,7 +40,6 @@ bitfield!{
     pub master_slave,           _:    6;
     pub generate_nmi,           _:    7;
 }
-
 
 pub struct PPU {
     cartridge: Option<Rc<RefCell<Cartridge>>>,
@@ -62,6 +61,7 @@ pub struct PPU {
     address_latch: u8,
     data_buffer: u8,
     buffer_address: u16,
+    pub nmi_enabled: bool,
 }
 
 impl PPU {
@@ -73,8 +73,8 @@ impl PPU {
             pattern_table: [[0; 4096]; 2],
             frame_complete: false,
             sprite_screen: [62; RENDER_SIZE],
-            sprite_name_table: [[0;256 * 240]; 2],
-            sprite_pattern_table: [[0;128 * 128]; 2],
+            sprite_name_table: [[0; 256 * 240]; 2],
+            sprite_pattern_table: [[0; 128 * 128]; 2],
             scanline: 0,
             cycle: 0,
             controller: Controller(0),
@@ -83,6 +83,7 @@ impl PPU {
             address_latch: 0,
             data_buffer: 0,
             buffer_address: 0,
+            nmi_enabled: true,
         }
     }
 
@@ -91,53 +92,52 @@ impl PPU {
         match addr {
             0x0000 => (), //Control
             0x0001 => (), //Mask
-            0x0002 => {   //Status
-                self.status.set_vblank(true);
+            0x0002 => {  //Status
                 data = (self.status.get() & 0xE0) | (self.data_buffer & 0x1F);
                 self.status.set_vblank(false);
-                self.address_latch = 0; 
-            },
+                self.address_latch = 0;
+            }
             0x0003 => (), //OAM Address
             0x0004 => (), //OAM Data
             0x0005 => (), //Scroll
             0x0006 => (), //PPU Address
-            0x0007 => {   //PPU Data
+            0x0007 => {   //PPU data
                 data = self.data_buffer;
                 self.data_buffer = self.ppu_read(self.buffer_address, false);
 
-                if self.buffer_address > 0x3F00{
+                if self.buffer_address > 0x3F00 {
                     data = self.data_buffer;
                 }
                 self.buffer_address += 1;
-            }, 
-
+            }
             _ => (), //required by rust
         }
         return data;
     }
     pub fn cpu_write(&mut self, addr: u16, data: &mut u8) {
         match addr {
-            0x0000 =>  self.controller = Controller(*data), //Control
-            0x0001 => self.mask = Mask(*data), //Mask
-            0x0002 => (), //Status
-            0x0003 => (), //OAM Address
-            0x0004 => (), //OAM Data
-            0x0005 => (), //Scroll
-            0x0006 =>     //PPU Address
+            0x0000 => self.controller = Controller(*data), //Control
+            0x0001 => self.mask = Mask(*data),             //Mask
+            0x0002 => (),                                  //Status
+            0x0003 => (),                                  //OAM Address
+            0x0004 => (),                                  //OAM Data
+            0x0005 => (),                                  //Scroll
+            0x0006 =>
+            //PPU Address
             {
-                if self.address_latch == 0{
+                if self.address_latch == 0 {
                     self.buffer_address = (self.buffer_address & 0x00FF) | (*data as u16) << 8; //KEEP AN EYE ON THIS
                     self.address_latch = 1;
-                }else
-                {
+                } else {
                     self.buffer_address = (self.buffer_address & 0xFF00) | *data as u16;
                     self.address_latch = 0;
                 }
-            }, 
-            0x0007 => {  //PPU Data
+            }
+            0x0007 => {
+                //PPU Data
                 self.ppu_write(self.buffer_address, data);
                 self.buffer_address += 1;
-            }, 
+            }
 
             _ => (), //required by rust
         }
@@ -146,29 +146,31 @@ impl PPU {
         let mut data: u8 = 0x00;
         addr &= 0x3FFF;
         if let Some(ref c) = self.cartridge {
-            if c.borrow_mut().ppu_read(addr, &mut data)
-            {
+            if c.borrow_mut().ppu_read(addr, &mut data) {
                 //Should always be false
-            }
-            else if addr >= 0x0000 && addr <= 0x1FFF
-            {   //Pattern memory
-                //First index chooses whether it's the left or the right pattern table, second is index within that table 
+            } else if addr >= 0x0000 && addr <= 0x1FFF {
+                //Pattern memory
+                //First index chooses whether it's the left or the right pattern table, second is index within that table
                 let first_index = ((addr & 0x1000) >> 12).to_be_bytes()[1] as usize;
                 let second_index = (addr & 0x0FFF) as usize;
                 data = self.pattern_table[first_index][second_index];
-            }
-            else if addr >= 0x2000 && addr <= 0x3EFF
-            {   //Nametable memory
-                
-            }
-            else if addr >= 0x3F00 && addr <= 0x3FFF
-            {   //Palette memory
+            } else if addr >= 0x2000 && addr <= 0x3EFF { //Nametable memory
+            } else if addr >= 0x3F00 && addr <= 0x3FFF {
+                //Palette memory
                 addr = addr & 0x001F;
-                if addr == 0x0010 {addr = 0x0000}
-                if addr == 0x0014 {addr = 0x0004}
-                if addr == 0x0018 {addr = 0x0008}
-                if addr == 0x001C {addr = 0x000C}
-                let addr_u8 =  addr.to_be_bytes()[1];
+                if addr == 0x0010 {
+                    addr = 0x0000
+                }
+                if addr == 0x0014 {
+                    addr = 0x0004
+                }
+                if addr == 0x0018 {
+                    addr = 0x0008
+                }
+                if addr == 0x001C {
+                    addr = 0x000C
+                }
+                let addr_u8 = addr.to_be_bytes()[1];
                 data = self.palette_table[addr_u8 as usize];
             }
         }
@@ -178,26 +180,30 @@ impl PPU {
     pub fn ppu_write(&mut self, mut addr: u16, data: &mut u8) {
         addr &= 0x3FFF;
         if let Some(ref c) = self.cartridge {
-            if c.borrow_mut().ppu_write(addr, data)
-            {
+            if c.borrow_mut().ppu_write(addr, data) {
                 //Should always be false
-            }else if addr >= 0x0000 && addr <= 0x1FFF
-            {
+            } else if addr >= 0x0000 && addr <= 0x1FFF {
                 //Pattern memory, usually a ROM however some games need to write to it
                 let first_index = ((addr & 0x1000) >> 12).to_be_bytes()[1] as usize;
                 self.pattern_table[first_index][(addr & 0x0FFF) as usize] = *data;
-            }else if addr >= 0x2000 && addr <= 0x3EFF
-            {
+            } else if addr >= 0x2000 && addr <= 0x3EFF {
                 //Nametable memory
-            }else if addr >= 0x3F00 && addr <= 0x3FFF
-            {
+            } else if addr >= 0x3F00 && addr <= 0x3FFF {
                 //Palette memory
                 addr = addr & 0x001F;
-                if addr == 0x0010 {addr = 0x0000}
-                if addr == 0x0014 {addr = 0x0004}
-                if addr == 0x0018 {addr = 0x0008}
-                if addr == 0x001C {addr = 0x000C}
-                let addr_u8 =  addr.to_be_bytes()[1];
+                if addr == 0x0010 {
+                    addr = 0x0000
+                }
+                if addr == 0x0014 {
+                    addr = 0x0004
+                }
+                if addr == 0x0018 {
+                    addr = 0x0008
+                }
+                if addr == 0x001C {
+                    addr = 0x000C
+                }
+                let addr_u8 = addr.to_be_bytes()[1];
                 self.palette_table[addr_u8 as usize] = *data;
             }
         }
@@ -260,8 +266,8 @@ impl PPU {
         return ret;
     }
 
-    pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8{
-        let addr:u16 = 0x3F00 + (palette as u16 * 4) + pixel as u16;
+    pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8 {
+        let addr: u16 = 0x3F00 + (palette as u16 * 4) + pixel as u16;
         let i = self.ppu_read(addr, false);
         return i;
     }
@@ -273,22 +279,31 @@ impl PPU {
         let i = (x + 256 * y) as usize;
         self.sprite_screen[i] = c;
     }
-    fn write_nametable_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) 
-    {
+    fn write_nametable_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) {
         let i = (x + 256 * y) as usize;
         self.sprite_pattern_table[index][i] = c;
     }
-    fn write_pattern_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) 
-    {
+    fn write_pattern_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) {
         let i = (x + 128 * y) as usize;
         self.sprite_pattern_table[index][i] = c;
     }
     pub fn clock(&mut self) {
-        if rand::random() {
-            self.draw_pixel(self.cycle, self.scanline, 61);
-        } else {
-            self.draw_pixel(self.cycle, self.scanline, 63);
+        if self.scanline == 261 && self.cycle == 1 {
+            self.status.set_vblank(false);
         }
+        if self.scanline == 241 && self.cycle == 1 {
+            self.status.set_vblank(true);
+            if self.controller.generate_nmi() == true {
+                self.nmi_enabled = true;
+            }
+        }
+
+        // if rand::random() {
+        //     self.draw_pixel(self.cycle, self.scanline, 61);
+        // } else {
+        //     self.draw_pixel(self.cycle, self.scanline, 63);
+        // }
+
         self.cycle = self.cycle + 1;
         if self.cycle >= 341 {
             self.cycle = 0;
