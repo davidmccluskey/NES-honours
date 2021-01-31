@@ -14,7 +14,7 @@ bitfield! {
     pub sprite_overflow, set_sprite_overflow:        5;
     pub sprite_0, set_sprite_0:        6;
     pub vertical_blank,          set_vblank:                 7;
-    pub get,             _:                      7,  0; // Full data
+    pub get,             _:                      7,  0;
 }
 bitfield! {
     #[derive(Copy, Clone)]
@@ -99,7 +99,7 @@ impl PPU {
             palette_table: [0; 32],
             pattern_table: [[0; 4096]; 2],
             frame_complete: false,
-            sprite_screen: [62; RENDER_SIZE],
+            sprite_screen: [2; RENDER_SIZE],
             sprite_name_table: [[0; 256 * 240]; 2],
             sprite_pattern_table: [[0; 128 * 128]; 2],
             scanline: 0,
@@ -147,10 +147,8 @@ impl PPU {
                 }
                 if self.controller.increment() == true{
                     self.v_address_register = Address(self.v_address_register.get().wrapping_add(32));
-                    //self.v_address_register.get().wrapping_add(32);
                 }else{
                     self.v_address_register = Address(self.v_address_register.get().wrapping_add(1));
-                    //self.v_address_register.get().wrapping_add(1);
                 }
             }
             _ => (), //required by rust
@@ -201,7 +199,6 @@ impl PPU {
                     self.v_address_register = Address(self.v_address_register.get().wrapping_add(1));
                 }
             }
-
             _ => (), //required by rust
         }
     }
@@ -402,10 +399,7 @@ impl PPU {
         let i = (x + 256 * y) as usize;
         self.sprite_screen[i] = c;
     }
-    // fn write_nametable_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) {
-    //     let i = (x + 256 * y) as usize;
-    //     self.sprite_pattern_table[index][i] = c;
-    // }
+
     fn write_pattern_pixel(&mut self, x: u16, y: u16, c: SystemColor, index: usize) {
         let i = (x + 128 * y) as usize;
         self.sprite_pattern_table[index][i] = c;
@@ -454,6 +448,36 @@ impl PPU {
             self.v_address_register.set_fine_y(self.t_address_register.fine_y());
 
         }
+    }
+
+    pub fn reset(&mut self){
+        println!("PPU Reset");	
+        self.fine_x = 0x00;
+        self.address_latch = 0x00;
+        self.data_buffer = 0x00;
+        self.scanline = 0;
+        self.cycle = 0;
+        self.bg_tile_id = 0;
+        self.bg_tile_attr = 0;
+        self.bg_tile_lsb = 0;
+        self.bg_tile_msb = 0;
+        self.bg_shifter_attr_high = 0;
+        self.bg_shifter_attr_low = 0;
+        self.bg_shifter_lsb = 0;
+        self.bg_shifter_msb = 0;
+        self.status = Status(0);
+        self.mask = Mask(0);
+        self.controller = Controller(0);
+        self.v_address_register = Address(0);
+        self.t_address_register = Address(0);
+
+        self.name_table = [[0; 1024]; 2];
+        self.palette_table = [0; 32];
+        self.pattern_table = [[0; 4096]; 2];
+        self.frame_complete = false;
+        self.sprite_screen = [2; RENDER_SIZE];
+        self.sprite_name_table = [[0; 256 * 240]; 2];
+        self.sprite_pattern_table = [[0; 128 * 128]; 2];
     }
 
     fn load_bg_shifters(&mut self){
@@ -566,7 +590,7 @@ impl PPU {
 
             background_palette = ((palette_1 as u8) << 1) | palette_0 as u8;
         }
-        
+
         let colour = self.get_colour(background_palette, background_pixel);
         self.draw_pixel(self.cycle, self.scanline, colour);
 
