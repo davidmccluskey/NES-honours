@@ -1,22 +1,30 @@
-use std::fs;
 use std::fs::File;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io;
 use std::io::Read;
-use std::io::Write;
 
 use crate::mapper::Mapper;
 use crate::mapper_0::Mapper0;
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Mirroring {
+    Vertical,
+    Horizontal,
+    OnescreenLow,
+    OnescreenHigh,
+}
+
+#[allow(dead_code)]
 pub struct Cartridge {
     pub vec_prg_memory: Vec<u8>,
     pub vec_chr_memory: Vec<u8>,
     pub c_mapper_id: u8,
     pub c_prg_banks: u8,
     pub c_chr_banks: u8,
-    mapper: Box<Mapper>,
+    mapper: Box<dyn Mapper>,
     header: CartridgeHeader,
+    pub mirror: Mirroring,
 }
 
 pub struct CartridgeHeader {
@@ -80,6 +88,8 @@ impl Cartridge {
         let mut vec_prg_memory: Vec<u8> = Vec::new();
         let mut vec_chr_memory: Vec<u8> = Vec::new();
 
+
+
         if file_type == 0{
             //TODO
         }else if file_type == 1
@@ -97,7 +107,7 @@ impl Cartridge {
             //TODO
         }
 
-        let mapper: Box<Mapper> = match mapper_id {
+        let mapper: Box<dyn Mapper> = match mapper_id {
             0 => Box::new(Mapper0::new(
                 cartridge_header.prg_rom_pages,
                 cartridge_header.chr_rom_pages,
@@ -112,6 +122,11 @@ impl Cartridge {
             c_prg_banks: cartridge_header.prg_rom_pages,
             c_chr_banks: cartridge_header.chr_rom_pages,
             mapper: mapper,
+            mirror: if cartridge_header.mapper_1 & 0x01 == 0{
+                Mirroring::Horizontal
+            }else{
+                Mirroring::Vertical
+            },
             header: cartridge_header,
         };
         return Ok(cartridge);

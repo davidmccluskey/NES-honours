@@ -14,6 +14,7 @@ impl Mapper0 {
     }
 }
 
+#[allow(unused_comparisons)]
 impl Mapper for Mapper0 {
     fn cpu_mapper_read(&mut self, addr: u16, mapped_addr: &mut u32) -> bool {
         if addr >= 0x8000 && addr <= 0xFFFF {
@@ -55,7 +56,7 @@ impl Mapper for Mapper0 {
     }
     fn ppu_mapper_write(&mut self, addr: u16, mapped_addr: &mut u32) -> bool {
         if addr >= 0x0000 && addr <= 0x1FFF {
-            if(self.n_chr_banks == 0){
+            if self.n_chr_banks == 0 {
                 *mapped_addr = addr as u32;
                 return true;
             }

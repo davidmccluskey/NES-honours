@@ -23,7 +23,8 @@ impl Bus{
   }
 
   //Function to write to RAM
-  pub fn cpuWrite(&mut self, addr: u16, data: &mut u8, )
+  #[allow(unused_comparisons)]
+  pub fn cpu_write(&mut self, addr: u16, data: &mut u8, )
   {
     if let Some(ref c) = self.cartridge 
     {
@@ -32,7 +33,6 @@ impl Bus{
         }    
         else if addr >= 0x0000 && addr <= 0x1FFF 
         {
-          let tmp = [addr as usize & 0x07FF];
           self.ram[addr as usize & 0x07FF] = *data;
         }
         else if addr >= 0x2000 && addr <= 0x3FFF
@@ -44,7 +44,8 @@ impl Bus{
   }
 
   //Function to read from RAM
-  pub fn cpuRead(&mut self, addr: u16, _readOnly: bool) -> u8 {
+  #[allow(unused_comparisons)]
+  pub fn cpu_read(&mut self, addr: u16, read_only: bool) -> u8 {
     let mut data: u8 = 0x00;
 
     if let Some(ref c) = self.cartridge 
@@ -58,7 +59,7 @@ impl Bus{
       }
       else if addr >= 0x2000 && addr <= 0x3FFF
       {
-        data = self.ppu.cpu_read(addr & 0x0007, _readOnly)
+        data = self.ppu.cpu_read(addr & 0x0007, read_only);
       }
     }
 

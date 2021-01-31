@@ -14,12 +14,11 @@ use sdl2::render::Texture;
 
 use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
-use std::fmt::{Error, Write};
 use std::path::Path;
 use std::rc::Rc;
 use std::time::{Instant};
 
-pub mod CPU6502;
+pub mod cpu_6502;
 pub mod bus;
 pub mod cartridge;
 pub mod mapper;
@@ -36,14 +35,14 @@ macro_rules! rect(
     )
 );
 
-fn update(nes: &mut CPU6502::CPU6502) {
+fn update(nes: &mut cpu_6502::CPU6502) {
     while {
         nes.clock();
         !nes.complete()
     } {}
 }
 
-fn update_full_frame(nes: &mut CPU6502::CPU6502) {
+fn update_full_frame(nes: &mut cpu_6502::CPU6502) {
     while {
         nes.clock();
         !nes.bus.ppu.frame_complete
@@ -73,7 +72,7 @@ fn main() -> Result<(), String> {
 
     let tx1 = canvas.texture_creator();
     let mut screen_texture: Box<sdl2::render::Texture> = {
-        let mut tex = tx1
+        let tex = tx1
             .create_texture(
                 PixelFormatEnum::RGB24,
                 TextureAccess::Streaming,
@@ -86,7 +85,7 @@ fn main() -> Result<(), String> {
 
     let tx2 = canvas.texture_creator();
     let mut pattern_one: Box<sdl2::render::Texture> = {
-        let mut tex2 = tx2
+        let tex2 = tx2
             .create_texture(
                 PixelFormatEnum::RGB24,
                 TextureAccess::Streaming,
@@ -97,25 +96,25 @@ fn main() -> Result<(), String> {
         unsafe { Box::new(std::mem::transmute(tex2)) }
     };
 
-    let tx3 = canvas.texture_creator();
-    let mut pattern_two: Box<sdl2::render::Texture> = {
-        let mut tex3 = tx3
-            .create_texture(
-                PixelFormatEnum::RGB24,
-                TextureAccess::Streaming,
-                128 as u32,
-                128 as u32,
-            )
-            .unwrap();
-        unsafe { Box::new(std::mem::transmute(tex3)) }
-    };
+    // let tx3 = canvas.texture_creator();
+    // let mut pattern_two: Box<sdl2::render::Texture> = {
+    //     let tex3 = tx3
+    //         .create_texture(
+    //             PixelFormatEnum::RGB24,
+    //             TextureAccess::Streaming,
+    //             128 as u32,
+    //             128 as u32,
+    //         )
+    //         .unwrap();
+    //     unsafe { Box::new(std::mem::transmute(tex3)) }
+    // };
 
     // Load a font
     let mut font = ttf_context.load_font(font_path, 128)?;
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
-    let mut nes = CPU6502::CPU6502::new();
-    let mut cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
+    let mut nes = cpu_6502::CPU6502::new();
+    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/nestest.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
     let disassembly = nes.disassemble(0x0000, 0xFFFF);
@@ -126,6 +125,8 @@ fn main() -> Result<(), String> {
 
     let mut emulation_run = false;
     let mut time: f32 = 0.0;
+
+    let mut palette = 0;
 
     'mainloop: loop {
         for event in sdl_context.event_pump()?.poll_iter() {
@@ -142,6 +143,16 @@ fn main() -> Result<(), String> {
                     ..
                 } => {
                     nes.reset();
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::P),
+                    ..
+                } => {
+                    if palette == 7{
+                        palette = 0;
+                    }else{
+                        palette +=1;
+                    }
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::Space),
@@ -179,17 +190,17 @@ fn main() -> Result<(), String> {
         canvas.clear();
         let pc = nes.pc;
         {
-            drawLine(
+            draw_line(
                 rect!(900, 10, 200, 20),
                 "Status Registers: ",
                 &mut canvas,
                 &font,
                 Color::WHITE,
             );
-            if nes.GetFlag(CPU6502::Flags::N) == 0 {
-                drawLine(rect!(900, 40, 20, 20), "N", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::N) == 0 {
+                draw_line(rect!(900, 40, 20, 20), "N", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(900, 40, 20, 20),
                     "N",
                     &mut canvas,
@@ -197,10 +208,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::V) == 0 {
-                drawLine(rect!(930, 40, 20, 20), "V", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::V) == 0 {
+                draw_line(rect!(930, 40, 20, 20), "V", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(930, 40, 20, 20),
                     "V",
                     &mut canvas,
@@ -208,10 +219,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::U) == 0 {
-                drawLine(rect!(960, 40, 20, 20), "U", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::U) == 0 {
+                draw_line(rect!(960, 40, 20, 20), "U", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(960, 40, 20, 20),
                     "U",
                     &mut canvas,
@@ -219,10 +230,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::B) == 0 {
-                drawLine(rect!(990, 40, 20, 20), "B", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::B) == 0 {
+                draw_line(rect!(990, 40, 20, 20), "B", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(990, 40, 20, 20),
                     "B",
                     &mut canvas,
@@ -230,10 +241,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::D) == 0 {
-                drawLine(rect!(1020, 40, 20, 20), "D", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::D) == 0 {
+                draw_line(rect!(1020, 40, 20, 20), "D", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(1020, 40, 20, 20),
                     "D",
                     &mut canvas,
@@ -241,10 +252,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::I) == 0 {
-                drawLine(rect!(1050, 40, 20, 20), "I", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::I) == 0 {
+                draw_line(rect!(1050, 40, 20, 20), "I", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(1050, 40, 20, 20),
                     "I",
                     &mut canvas,
@@ -252,10 +263,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::Z) == 0 {
-                drawLine(rect!(1080, 40, 20, 20), "Z", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::Z) == 0 {
+                draw_line(rect!(1080, 40, 20, 20), "Z", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(1080, 40, 20, 20),
                     "Z",
                     &mut canvas,
@@ -263,10 +274,10 @@ fn main() -> Result<(), String> {
                     Color::GREEN,
                 );
             }
-            if nes.GetFlag(CPU6502::Flags::C) == 0 {
-                drawLine(rect!(1110, 40, 20, 20), "C", &mut canvas, &font, Color::RED);
+            if nes.get_flag(cpu_6502::Flags::C) == 0 {
+                draw_line(rect!(1110, 40, 20, 20), "C", &mut canvas, &font, Color::RED);
             } else {
-                drawLine(
+                draw_line(
                     rect!(1110, 40, 20, 20),
                     "C",
                     &mut canvas,
@@ -276,50 +287,50 @@ fn main() -> Result<(), String> {
             }
         }
         {
-            let mut aReg = "A: ".to_owned();
-            aReg.push_str(&(format!("{:X}", &nes.a)));
-            aReg.push_str(" [");
-            aReg.push_str(&(nes.a).to_string());
-            aReg.push_str("]");
-            drawLine(
+            let mut a_reg = "A: ".to_owned();
+            a_reg.push_str(&(format!("{:X}", &nes.a)));
+            a_reg.push_str(" [");
+            a_reg.push_str(&(nes.a).to_string());
+            a_reg.push_str("]");
+            draw_line(
                 rect!(900, 80, 200, 20),
-                &aReg,
+                &a_reg,
                 &mut canvas,
                 &font,
                 Color::WHITE,
             );
 
-            let mut aReg = "X: ".to_owned();
-            aReg.push_str(&(format!("{:X}", &nes.x)));
-            aReg.push_str(" [");
-            aReg.push_str(&(nes.x).to_string());
-            aReg.push_str("]");
-            drawLine(
+            let mut x_reg = "X: ".to_owned();
+            x_reg.push_str(&(format!("{:X}", &nes.x)));
+            x_reg.push_str(" [");
+            x_reg.push_str(&(nes.x).to_string());
+            x_reg.push_str("]");
+            draw_line(
                 rect!(900, 110, 200, 20),
-                &aReg,
+                &x_reg,
                 &mut canvas,
                 &font,
                 Color::WHITE,
             );
 
-            let mut aReg = "Y: ".to_owned();
-            aReg.push_str(&(format!("{:X}", &nes.y)));
-            aReg.push_str(" [");
-            aReg.push_str(&(nes.y).to_string());
-            aReg.push_str("]");
-            drawLine(
+            let mut y_reg = "Y: ".to_owned();
+            y_reg.push_str(&(format!("{:X}", &nes.y)));
+            y_reg.push_str(" [");
+            y_reg.push_str(&(nes.y).to_string());
+            y_reg.push_str("]");
+            draw_line(
                 rect!(900, 140, 200, 20),
-                &aReg,
+                &y_reg,
                 &mut canvas,
                 &font,
                 Color::WHITE,
             );
         }
-        let mut pcText = ("PC: ").to_owned();
-        pcText.push_str(&(format!("{:X}", &pc)));
-        drawLine(
+        let mut pc_txt = ("PC: ").to_owned();
+        pc_txt.push_str(&(format!("{:X}", &pc)));
+        draw_line(
             rect!(900, 170, 200, 20),
-            &pcText,
+            &pc_txt,
             &mut canvas,
             &font,
             Color::WHITE,
@@ -335,7 +346,7 @@ fn main() -> Result<(), String> {
                 let val = iteration.unwrap_or(&text);
                 if val != "Error" {
                     i = i + 1;
-                    drawLine(
+                    draw_line(
                         rect!(900, 170 + (i * 50), 300, 20),
                         &val,
                         &mut canvas,
@@ -347,7 +358,7 @@ fn main() -> Result<(), String> {
         }
 
         render_frame(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3), &mut screen_texture);
-        render_pattern_table(&mut canvas, &mut nes, rect!(900, 200, 256, 256), &mut pattern_one, 0);
+        render_pattern_table(&mut canvas, &mut nes, rect!(900, 500, 256, 256), &mut pattern_one, 0, palette);
         //render_pattern_table(&mut canvas, &mut nes, rect!(1030, 580, 256, 256), &mut pattern_two, 1);
         
         canvas.present();
@@ -355,7 +366,7 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
-fn drawLine(
+fn draw_line(
     rect: sdl2::rect::Rect,
     text: &str,
     canvas: &mut WindowCanvas,
@@ -371,20 +382,14 @@ fn drawLine(
     canvas.copy(&texture.unwrap(), None, Some(rect)).unwrap();
 }
 
-fn render_frame(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture) {
+fn render_frame(canvas: &mut WindowCanvas, nes: &mut cpu_6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture) {
     let frame_data = nes.bus.ppu.render();
     tex.update(None, &frame_data, 256 * 3).unwrap();
     canvas.copy(&tex, None, Some(rect)).unwrap();
 }
 
-fn render_name_table(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture){
-    let frame_data = nes.bus.ppu.get_name_table(1);
-    tex.update(None, &frame_data, 256 * 3).unwrap();
-    canvas.copy(&tex, None, Some(rect)).unwrap();
-}
-
-fn render_pattern_table(canvas: &mut WindowCanvas, nes: &mut CPU6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture, index: u8){
-    let frame_data = nes.bus.ppu.get_pattern_table(index, 0);
+fn render_pattern_table(canvas: &mut WindowCanvas, nes: &mut cpu_6502::CPU6502, rect: sdl2::rect::Rect, tex: &mut Texture, index: u8, palette: u8){
+    let frame_data = nes.bus.ppu.get_pattern_table(index, palette);
     tex.update(None, &frame_data, 128*3).unwrap();
     canvas.copy(&tex, None, Some(rect)).unwrap();
 }
