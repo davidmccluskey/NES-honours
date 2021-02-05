@@ -351,18 +351,6 @@ impl PPU {
         self.cartridge = Some(cartridge);
     }
 
-    pub fn render(&self) -> [u8; RENDER_FULL] {
-        let mut frame = [0; RENDER_FULL];
-        for i in 0..RENDER_SIZE {
-            let c = self.sprite_screen[i];
-            let (r, g, b) = SYSTEM_PALETTE[c as usize];
-            frame[i * 3 + 0] = r;
-            frame[i * 3 + 1] = g;
-            frame[i * 3 + 2] = b;
-        }
-        return frame;
-    }
-
     pub fn get_pattern_table(&mut self, index: u8, palette: u8) -> [u8; (128 * 128) * 3] {
         for tile_y in 0..16 {
             for tile_x in 0..16 {
@@ -389,6 +377,18 @@ impl PPU {
         return self.render_palette(index);
     }
 
+    pub fn render(&self) -> [u8; RENDER_FULL] {
+        let mut frame = [0; RENDER_FULL];
+        for i in 0..RENDER_SIZE {
+            let c = self.sprite_screen[i];
+            let (r, g, b) = SYSTEM_PALETTE[c as usize];
+            frame[i * 3 + 0] = r;
+            frame[i * 3 + 1] = g;
+            frame[i * 3 + 2] = b;
+        }
+        return frame;
+    }
+    
     pub fn render_palette(&self, index: u8) -> [u8; (128 * 128) * 3] {
         let mut frame = [0; (128 * 128) * 3];
         for i in 0..(128 * 128) {
@@ -402,7 +402,7 @@ impl PPU {
     }
 
     pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8 {
-        let addr: u16 = 0x3F00 + (palette as u16 * 4) + pixel as u16;
+        let addr: u16 = 0x3F00 + (palette << 2) as u16 + pixel as u16;
         let i = self.ppu_read(addr, false);
         return i & 0x3F;
     }
@@ -496,13 +496,13 @@ impl PPU {
         self.bg_shifter_lsb = (self.bg_shifter_lsb & 0xFF00) | (self.bg_tile_lsb as u16);
         self.bg_shifter_msb = (self.bg_shifter_msb & 0xFF00) | (self.bg_tile_msb as u16);
 
-        if (self.bg_tile_attr & 0b01) == 1 {
+        if (self.bg_tile_attr & 0b01) > 0 {
             self.bg_shifter_attr_low = (self.bg_shifter_attr_low & 0xFF00) | 0xFF;
         } else {
             self.bg_shifter_attr_low = (self.bg_shifter_attr_low & 0xFF00) | 0x00;
         }
 
-        if (self.bg_tile_attr & 0b10) == 1 {
+        if (self.bg_tile_attr & 0b10) > 0 {
             self.bg_shifter_attr_high = (self.bg_shifter_attr_high & 0xFF00) | 0xFF;
         } else {
             self.bg_shifter_attr_high = (self.bg_shifter_attr_high & 0xFF00) | 0x00;
@@ -601,19 +601,19 @@ impl PPU {
         let mut background_palette: u8 = 0x00;
 
         if self.mask.show_background() {
-            let bit_mask = 0x8000 >> (self.fine_x as u16);
+            let bit_mask = 0x8000 >> (self.fine_x);
             let plane_0 = ((self.bg_shifter_lsb & bit_mask) > 0) as u8;
             let plane_1 = ((self.bg_shifter_msb & bit_mask) > 0) as u8;
-            background_pixel = ((plane_1) << 1) | plane_0;
+            background_pixel = (plane_1 << 1) | plane_0;
 
             let palette_0 = ((self.bg_shifter_attr_low & bit_mask) > 0) as u8;
             let palette_1 = ((self.bg_shifter_attr_high & bit_mask) > 0) as u8;
 
-            background_palette = ((palette_1) << 1) | palette_0;
+            background_palette = (palette_1 << 1) | palette_0;
         }
 
         let colour = self.get_colour(background_palette, background_pixel);
-        self.draw_pixel(self.cycle, self.scanline, colour);
+        self.draw_pixel(self.cycle - 1, self.scanline, colour);
 
         self.cycle += 1;
         if self.cycle >= 341 {

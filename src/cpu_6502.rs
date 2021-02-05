@@ -133,8 +133,8 @@ impl CPU6502{
 
     // Reset Interrupt
     pub fn reset(&mut self){
+        self.bus.reset();
         self.addr_absolute = 0xFFFC;
-
         let low = self.read(self.addr_absolute) as u16;
         let high = self.read(self.addr_absolute + 1) as u16;
 
@@ -144,15 +144,13 @@ impl CPU6502{
         self.x = 0;
         self.y = 0;
         self.sptr = 0xFD;
-        self.sr = 0x00 | Flags::U.bits;
+        self.sr = 0x00;
 
         self.addr_absolute = 0x0000;
         self.addr_relative = 0x0000;
-
         self.fetched = 0x00;
 
         self.cycles = 8;
-        self.bus.reset();
     }
 
     // Interrupt Request
@@ -834,14 +832,16 @@ impl CPU6502 {
 
         if ptr_low == 0x00FF 
         {
-            let low = self.read(((self.sptr as u16) & 0xFF00) << 8) as u16;
-            let high = self.read(ptr + 0) as u16;
+            let low = self.read(((ptr as u16) & 0xFF00) << 8) as u16;
+            let high = self.read(ptr) as u16;
             self.addr_absolute = (low | high) as u16; //OVERFLOW
         }
         else 
         {
-            let low = self.read((((self.sptr as u16 + 1))) << 8) as u16;
-            self.addr_absolute = (low | self.read(ptr + 0) as u16) as u16; //OVERFLOW
+            let addr_1 = (ptr as u16 + 1);
+            let low = self.read(addr_1) as u16;
+            let high = self.read(ptr) as u16;
+            self.addr_absolute = (low << 8 | high) as u16; //OVERFLOW
         }
         
         return 0;
@@ -905,7 +905,6 @@ impl CPU6502{
         self.set_flag(Flags::V, ((!(self.a as u16 ^ self.fetched as u16) & (self.a as u16^ tmp)) & 0x0080) > 0);
 
         self.a = tmp as u8 & 0x00FF;
-        //let test = (tmp & 0x00FF).to_be_bytes()[1];
         return 1;
     }
 
@@ -932,7 +931,7 @@ impl CPU6502{
 
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
 
-        self.a = tmp as u8 & 0x00FF;
+        self.a = (tmp & 0x00FF) as u8;
 
         return 1;
     }
@@ -1440,16 +1439,20 @@ impl CPU6502{
     //Return from interrupt
     fn RTI(&mut self) -> u8{
         self.add_stack(); 
-        self.sr = self.read(0x0100 + self.sptr as u16);
+        let sr = self.sptr as u16;
+        self.sr = self.read(0x0100 + sr);
         self.sr &= !Flags::B.bits;
         self.sr &= !Flags::U.bits;
 
         self.add_stack();
         let sptr = self.sptr as u16;
-        self.pc = self.read(0x0100 + sptr) as u16;
-        self.add_stack();         
+        self.pc = (self.read(0x0100 + sptr)) as u16;
+        
+        self.add_stack(); 
         let sptr = self.sptr as u16;
-        self.pc |= (self.read(0x0100 + sptr as u16) as u16) << 8;
+        let mut or = self.read(0x0100 + sptr) as u16;
+        or <<=8;
+        self.pc |= or;
         return 0;
     }
 

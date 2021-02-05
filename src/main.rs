@@ -114,7 +114,7 @@ fn main() -> Result<(), String> {
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
     let mut nes = cpu_6502::CPU6502::new();
-    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/nestest.nes".to_string());
+    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
 
