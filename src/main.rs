@@ -59,7 +59,7 @@ fn main() -> Result<(), String> {
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
 
-    let font_path: &Path = Path::new("./assets/PressStart2P-Regular.ttf");
+    let font_path: &Path = Path::new("./assets/monogram.ttf");
 
     let window = video_subsys
         .window(" ", SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -117,8 +117,8 @@ fn main() -> Result<(), String> {
     let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/nestest.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
-    let disassembly = nes.disassemble(0x0000, 0xFFFF);
 
+    let disassembly = nes.disassemble(0x0000, 0xFFFF);
     nes.reset();
 
     let mut count = 0;
@@ -128,9 +128,65 @@ fn main() -> Result<(), String> {
 
     let mut palette = 0;
 
+
     'mainloop: loop {
+        nes.bus.controller[0] = 0x00;
         for event in sdl_context.event_pump()?.poll_iter() {
             match event {
+                Event::KeyDown {
+                    keycode: Some(Keycode::X),  //B
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x80;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Z),  //A
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x40;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::A),  //Start
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x20;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::S),  //Select
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x10;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Up), //D-Pad up
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x08;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Down), //D-Pad down
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x04;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Left),   //D-pad Left
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x02;
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Right),  //D-Pad Right
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x01;
+
+                }
+
+
+
+
+
                 Event::KeyDown {
                     keycode: Some(Keycode::C),
                     ..
@@ -143,16 +199,6 @@ fn main() -> Result<(), String> {
                     ..
                 } => {
                     nes.reset();
-                }
-                Event::KeyDown {
-                    keycode: Some(Keycode::P),
-                    ..
-                } => {
-                    if palette == 7{
-                        palette = 0;
-                    }else{
-                        palette +=1;
-                    }
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::Space),
@@ -171,7 +217,7 @@ fn main() -> Result<(), String> {
                 Event::KeyDown {
                     keycode: Some(Keycode::Escape),
                     ..
-                }
+                } => break 'mainloop,
                 | Event::Quit { .. } => break 'mainloop,
                 _ => {}
             }
@@ -183,6 +229,7 @@ fn main() -> Result<(), String> {
                 time = time + (1.0 / 60.0);
                 while nes.bus.ppu.frame_complete == false {
                     nes.clock();
+                    
                 }
                 nes.bus.ppu.frame_complete = false;
             }
@@ -293,7 +340,7 @@ fn main() -> Result<(), String> {
             a_reg.push_str(&(nes.a).to_string());
             a_reg.push_str("]");
             draw_line(
-                rect!(900, 80, 200, 20),
+                rect!(900, 80, 200, 30),
                 &a_reg,
                 &mut canvas,
                 &font,
@@ -306,7 +353,7 @@ fn main() -> Result<(), String> {
             x_reg.push_str(&(nes.x).to_string());
             x_reg.push_str("]");
             draw_line(
-                rect!(900, 110, 200, 20),
+                rect!(900, 110, 200, 30),
                 &x_reg,
                 &mut canvas,
                 &font,
@@ -319,7 +366,7 @@ fn main() -> Result<(), String> {
             y_reg.push_str(&(nes.y).to_string());
             y_reg.push_str("]");
             draw_line(
-                rect!(900, 140, 200, 20),
+                rect!(900, 140, 200, 30),
                 &y_reg,
                 &mut canvas,
                 &font,
@@ -329,7 +376,7 @@ fn main() -> Result<(), String> {
         let mut pc_txt = ("PC: ").to_owned();
         pc_txt.push_str(&(format!("{:X}", &pc)));
         draw_line(
-            rect!(900, 170, 200, 20),
+            rect!(900, 170, 200, 30),
             &pc_txt,
             &mut canvas,
             &font,
@@ -338,7 +385,7 @@ fn main() -> Result<(), String> {
         let mut i = 0;
 
         for x in 0..20 {
-            let val = (nes.pc + x) as u32;
+            let val = (nes.pc as u32 + x as u32);
             let end = disassembly.capacity() as u32;
             if val <= end {
                 let iteration = disassembly.get(&(val));
@@ -347,7 +394,7 @@ fn main() -> Result<(), String> {
                 if val != "Error" {
                     i = i + 1;
                     draw_line(
-                        rect!(900, 170 + (i * 50), 300, 20),
+                        rect!(900, 170 + (i * 50), 300, 40),
                         &val,
                         &mut canvas,
                         &font,

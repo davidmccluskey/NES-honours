@@ -7,6 +7,11 @@ pub struct Bus {
   pub ppu: PPU,
   pub system_clock: u32,
   pub cartridge: Option<Rc<RefCell<Cartridge>>>,
+
+  pub controller: [u8; 2],
+  pub controller_state: [u8; 2],
+  pub nmi_required: bool,
+  
   //cpu: CPU6502,         //Reference to CPU
 }
 
@@ -18,6 +23,9 @@ impl Bus{
       ppu,
       system_clock: 0,
       cartridge: None,
+      controller: [0; 2],
+      controller_state: [0; 2],
+      nmi_required: false,
       //cpu,
     }
   }
@@ -33,11 +41,15 @@ impl Bus{
         }    
         else if addr >= 0x0000 && addr <= 0x1FFF 
         {
-          self.ram[addr as usize & 0x07FF] = *data;
+          self.ram[(addr & 0x07FF) as usize] = *data;
         }
         else if addr >= 0x2000 && addr <= 0x3FFF
         {
-          self.ppu.cpu_write(addr & 0x0007, data)
+          self.ppu.cpu_write(addr & 0x0007, data);
+        }
+        else if addr >= 0x4016 && addr <= 0x4017{
+          //let addru8 = addr & 0x0001;
+          self.controller_state[0] = self.controller[0];
         }
     }
 
@@ -55,11 +67,15 @@ impl Bus{
       } 
       else if addr >= 0x0000 && addr <= 0x1FFF 
       {
-        data = self.ram[addr as usize & 0x07FF];
+        data = self.ram[(addr & 0x07FF) as usize];
       }
       else if addr >= 0x2000 && addr <= 0x3FFF
       {
         data = self.ppu.cpu_read(addr & 0x0007, read_only);
+      }
+      else if addr >= 0x4016 && addr <= 0x4017 {
+        data = ((self.controller_state[0] & 0x08) > 0) as u8;
+        self.controller_state[0] <<= 1;
       }
     }
 
@@ -74,6 +90,12 @@ impl Bus{
     self.ppu.clock();
     self.ppu.clock();
     self.ppu.clock();
+
+
+    if self.ppu.nmi_enabled{
+      self.ppu.nmi_enabled = false;
+      self.nmi_required = true;
+  }
   }
 
   pub fn reset(&mut self){

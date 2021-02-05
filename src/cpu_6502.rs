@@ -2,6 +2,8 @@ use crate::bus::Bus;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::num::Wrapping;
+use std::fs::OpenOptions;
+use std::io::prelude::*;
 
 //All operations acquired from http://www.6502.org/tutorials/6502opcodes.html
 
@@ -21,6 +23,7 @@ pub struct CPU6502 {
     cycles: u8,          //Number of cycles
 
     lookup: Vec<Instruction>,   //lookup table
+
 }
 
 bitflags! {
@@ -82,7 +85,23 @@ impl CPU6502{
         if self.sptr != 0{
             self.sptr = self.sptr - 1;
         }else{
-            println!("Error");
+            self.sptr = 255;
+        }
+    }
+
+    pub fn add_pc(&mut self){
+        if self.pc != 65535{
+            self.pc += 1;
+        }else{
+            self.pc = 0;
+        }
+    }
+
+    pub fn add_stack(&mut self){
+        if self.sptr != 255{
+            self.sptr += 1;
+        }else{
+            self.sptr = 0;
         }
     }
 
@@ -114,12 +133,6 @@ impl CPU6502{
 
     // Reset Interrupt
     pub fn reset(&mut self){
-        self.a = 0;
-        self.x = 0;
-        self.y = 0;
-        self.sptr = 0xFD;
-        self.sr = 0x00 | Flags::U.bits;
-
         self.addr_absolute = 0xFFFC;
 
         let low = self.read(self.addr_absolute) as u16;
@@ -127,6 +140,11 @@ impl CPU6502{
 
         self.pc = (high << 8) | low;
         
+        self.a = 0;
+        self.x = 0;
+        self.y = 0;
+        self.sptr = 0xFD;
+        self.sr = 0x00 | Flags::U.bits;
 
         self.addr_absolute = 0x0000;
         self.addr_relative = 0x0000;
@@ -140,8 +158,12 @@ impl CPU6502{
     // Interrupt Request
     pub fn irq(&mut self){
         if self.get_flag(Flags::I) == 1{
-            let val = (self.pc >> 8) & 0x00FF;
-            self.write(0x0100 + self.sptr as u16, &mut val.to_be_bytes()[1]);
+            let mut val = (self.pc >> 8) as u8 & 0x00FF;
+            self.write(0x0100 + self.sptr as u16, &mut val) ;
+            self.subtract_stack();
+
+            let mut val = self.pc as u8 & 0x00FF;
+            self.write(0x0100 + self.sptr as u16, &mut val);
             self.subtract_stack();
 
             self.set_flag(Flags::B, false);
@@ -164,8 +186,12 @@ impl CPU6502{
 
     // Non-Maskable Interrupt Request
     pub fn nmi(&mut self){
-        let val = (self.pc >> 8) & 0x00FF;
-        self.write(0x0100 + self.sptr as u16, &mut val.to_be_bytes()[1]);
+        let mut val = (self.pc >> 8) as u8 & 0x00FF;
+        self.write(0x0100 + self.sptr as u16, &mut val);
+        self.subtract_stack();
+
+        let mut val = self.pc as u8 & 0x00FF;
+        self.write(0x0100 + self.sptr as u16, &mut val);
         self.subtract_stack();
 
         self.set_flag(Flags::B, false);
@@ -176,7 +202,7 @@ impl CPU6502{
         self.write(0x0100 + self.sptr as u16, &mut sr);
         self.subtract_stack();
 
-        self.addr_absolute = 0xFFFE;
+        self.addr_absolute = 0xFFFA;
         let low = self.read(self.addr_absolute) as u16;
         let high = self.read(self.addr_absolute + 1) as u16;
 
@@ -185,21 +211,93 @@ impl CPU6502{
         self.cycles = 7;
     }
 
+    pub fn write_debug(&mut self, log_pc: u16){
+
+        let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("/Users/multivac/NES/source/src/nes-log")
+        .unwrap();
+
+        let mut text = "PC:".to_owned();
+        let format = format!("{:X} A:{:X} X:{:X} Y:{:X} ", log_pc, self.a, self.x, self.y,);			
+        text.push_str(&format);
+
+        if self.get_flag(Flags::N) == 1{
+            text.push_str("N");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::V) == 1{
+            text.push_str("V");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::U) == 1{
+            text.push_str("U");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::B) == 1{
+            text.push_str("B");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::D) == 1{
+            text.push_str("D");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::I) == 1{
+            text.push_str("I");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::Z) == 1{
+            text.push_str("Z");
+        }else{
+            text.push_str(".");
+        }
+        if self.get_flag(Flags::C) == 1{
+            text.push_str("C");
+        }else{
+            text.push_str(".");
+        }
+        let format = format!(" STKP:{:X}",self.sptr);
+        text.push_str(&format);
+
+        if let Err(e) = writeln!(file, "{}",&text) {
+            eprintln!("Couldn't write to file: {}", e);
+        }
+        
+    }
+
     //Perform one clock cycle's worth of update
     pub fn clock(&mut self){
+        self.bus.clock();
+        if self.bus.nmi_required == true{
+            self.bus.nmi_required = false;
+            self.nmi();
+        }
         if self.cycles == 0 {
+            let log_pc = self.pc;
+            self.set_flag(Flags::U, true);
+
             self.opcode = self.read(self.pc);
 
-            self.pc = self.pc + 1;
+            self.add_pc();
             self.cycles = self.lookup[self.opcode as usize].cycles;
 
             let add_cycle1 = (self.lookup[self.opcode as usize].addrmode)(self);
             let add_cycle2 = (self.lookup[self.opcode as usize].operation)(self);
 
-            self.cycles = self.cycles + (add_cycle1 + add_cycle2);
+            self.cycles = self.cycles + (add_cycle1 & add_cycle2);
+            self.set_flag(Flags::U, true);
+
+            //self.write_debug(log_pc);
+
         }
         self.cycles = self.cycles - 1;
-        self.bus.clock();
     }
 
     pub fn complete(&mut self) -> bool {
@@ -653,36 +751,39 @@ impl CPU6502 {
 
     fn IMM(&mut self) -> u8{
         self.addr_absolute = self.pc;
-        self.pc = self.pc + 1;
+        self.add_pc();
+
         return 0;
     }
 
     fn ZP0(&mut self) -> u8{
-        self.addr_absolute = self.read(self.pc) as u16; //KEEP AN EYE ON THIS
-        self.pc = self.pc + 1;
+        self.addr_absolute = self.read(self.pc) as u16;
+        self.add_pc();
+
         self.addr_absolute &= 0x00FF;
         return 0;
     }
 
     fn ZPX(&mut self) -> u8{
-        self.addr_absolute = (self.read(self.pc) + self.x) as u16; //KEEP AN EYE ON THIS
-        self.pc = self.pc + 1;
+        self.addr_absolute = self.read(self.pc) as u16 + self.x as u16;
+        self.add_pc();
         self.addr_absolute &= 0x00FF;
         return 0;
     }
 
     fn ZPY(&mut self) -> u8{
-        self.addr_absolute = (self.read(self.pc) + self.y) as u16; //KEEP AN EYE ON THIS
+        self.addr_absolute = self.read(self.pc) as u16 + self.y as u16;
+        self.add_pc();
         self.addr_absolute &= 0x00FF;
         return 0;
     }
 
     fn ABS(&mut self) -> u8{
         let low = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         let high = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         self.addr_absolute = (high << 8 ) | low;
         return 0;
@@ -690,15 +791,15 @@ impl CPU6502 {
 
     fn ABX(&mut self) -> u8{
         let low = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         let high = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         self.addr_absolute = (high << 8 ) | low;
-        self.addr_absolute = self.addr_absolute + self.x as u16;
+        self.addr_absolute += self.x as u16;
 
-        if(self.addr_absolute & 0xFF00) != high << 8{
+        if(self.addr_absolute & 0xFF00) != (high << 8){
             return 1;
         }else{
             return 0;
@@ -707,15 +808,15 @@ impl CPU6502 {
 
     fn ABY(&mut self) -> u8{
         let low = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         let high = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         self.addr_absolute = (high << 8 ) | low;
-        self.addr_absolute = self.addr_absolute + self.y as u16;
+        self.addr_absolute += self.y as u16;
 
-        if(self.addr_absolute & 0xFF00) != high << 8{
+        if(self.addr_absolute & 0xFF00) != (high << 8){
             return 1;
         }else{
             return 0;
@@ -724,10 +825,10 @@ impl CPU6502 {
 
     fn IND(&mut self) -> u8{
         let ptr_low = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         let ptr_high = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
 
         let ptr = (ptr_high << 8) | ptr_low;
 
@@ -739,7 +840,7 @@ impl CPU6502 {
         }
         else 
         {
-            let low = self.read((((self.sptr + 1) as u16)) << 8) as u16;
+            let low = self.read((((self.sptr as u16 + 1))) << 8) as u16;
             self.addr_absolute = (low | self.read(ptr + 0) as u16) as u16; //OVERFLOW
         }
         
@@ -747,23 +848,28 @@ impl CPU6502 {
     }
     fn IZX(&mut self) -> u8{
         let t = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
     
         let low = self.read((t + self.x as u16) & 0x00FF) as u16;
-        let high = self.read((t + self.x  as u16 + 1) & 0x00FF) as u16;
+        let high = self.read((t + self.x as u16 + 1) & 0x00FF) as u16;
     
-        self.addr_absolute = ((high << 8)) as u16 | low as u16;
+        self.addr_absolute = (high << 8) | low;
         return 0;
     }
     fn IZY(&mut self) -> u8{
         let t = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
+        self.add_pc();
     
         let low = self.read(t & 0x00FF) as u16;
         let high = self.read((t + 1) & 0x00FF) as u16;
     
         self.addr_absolute = (high << 8) | low;
-        self.addr_absolute = self.addr_absolute + self.y as u16;
+
+        let wrapped_y = Wrapping(self.y as u16);
+        let wrapped_addr = Wrapping(self.addr_absolute);
+        
+        let tmp = (wrapped_y + wrapped_addr).0;
+        self.addr_absolute = tmp;
         
         if(self.addr_absolute & 0xFF00) != (high << 8){
             return 1;
@@ -773,8 +879,8 @@ impl CPU6502 {
     }
     fn REL(&mut self) -> u8{
         self.addr_relative = self.read(self.pc) as u16;
-        self.pc = self.pc + 1;
-        if  (self.addr_relative & 0x80) != 0 { //BUG??
+        self.add_pc();
+        if  (self.addr_relative & 0x80) > 0 { //BUG??
             self.addr_relative |= 0xFF00;
         }
         return 0;
@@ -788,42 +894,35 @@ impl CPU6502{
     //Addition
     fn ADC(&mut self) -> u8{
         self.fetch();
-        let flagC = self.get_flag(Flags::C);
-        let tmp = (self.a + self.fetched + flagC) as u16;
+        
+        let tmp = self.a as u16 + self.fetched as u16 + self.get_flag(Flags::C) as u16;
 
-        if tmp > 255 {
-            self.set_flag(Flags::C, true);
-        }else{
-            self.set_flag(Flags::C, false);
-        }
-        self.set_flag(Flags::Z, (tmp & 0x00FF) == 1);
+        self.set_flag(Flags::C, tmp > 255);
 
-        let a16 = self.a as u16;
-        let fetched16 = self.fetched as u16;
-        let flag = (!(a16 ^ fetched16) & (a16 ^ tmp)) & 0x0080;
-        if flag == 1{
-            self.set_flag(Flags::V, true);
-        }else{
-            self.set_flag(Flags::V, false);
-        }
+        self.set_flag(Flags::Z, (tmp & 0x00FF) == 0);
 
-        self.a = (tmp & 0x00FF).to_be_bytes()[1];
+        let result = (!(self.a as u16 ^ self.fetched as u16) & (self.a as u16^ tmp)) & 0x0080;
+        self.set_flag(Flags::V, ((!(self.a as u16 ^ self.fetched as u16) & (self.a as u16^ tmp)) & 0x0080) > 0);
 
+        self.a = tmp as u8 & 0x00FF;
+        //let test = (tmp & 0x00FF).to_be_bytes()[1];
         return 1;
     }
 
     //Subtraction
     fn SBC(&mut self) -> u8{
         self.fetch();
-        let inversion = self.fetched ^ 0x00FF;
 
-        let tmp = (self.a + inversion + self.get_flag(Flags::C)) as u16;
+        let inversion = self.fetched as u16 ^ 0x00FF;
 
-        self.set_flag(Flags::C, tmp > 255);
-        self.set_flag(Flags::Z, (tmp & 0x00FF) == 1);
+        let tmp = self.a as u16 + inversion + self.get_flag(Flags::C) as u16;
+
+        self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
+        self.set_flag(Flags::Z, (tmp & 0x00FF) == 0);
 
         let a16 = self.a as u16;
         let fetched16 = self.fetched as u16;
+
         let flag = (!(a16 ^ fetched16) & (a16 ^ tmp)) & 0x0080;
         if flag == 1{
             self.set_flag(Flags::V, true);
@@ -831,9 +930,11 @@ impl CPU6502{
             self.set_flag(Flags::V, false);
         }
 
-        self.a = (tmp & 0x00FF).to_be_bytes()[1];
+        self.set_flag(Flags::N, (tmp & 0x0080) > 0);
 
-        return 0;
+        self.a = tmp as u8 & 0x00FF;
+
+        return 1;
     }
 
     //Bitwise AND
@@ -847,7 +948,7 @@ impl CPU6502{
         }else{
             self.set_flag(Flags::N, false)
         }
-        return 0;
+        return 1;
     }
 
     //Shift left
@@ -857,7 +958,7 @@ impl CPU6502{
         let temp = self.fetched << 1;
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
-        self.set_flag(Flags::N, tmp & 0x80 > 0);
+        self.set_flag(Flags::N, (tmp & 0x80) > 0);
 
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
             self.a = temp & 0x00FF;
@@ -871,13 +972,13 @@ impl CPU6502{
     //Branch if carry bit 0
     fn BCC(&mut self) -> u8{
         if self.get_flag(Flags::C) == 0 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -887,13 +988,13 @@ impl CPU6502{
     //Branch if carry bit set
     fn BCS(&mut self) -> u8{
         if self.get_flag(Flags::C) == 1 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -903,13 +1004,13 @@ impl CPU6502{
     //Branch if equal
     fn BEQ(&mut self) -> u8{
         if self.get_flag(Flags::Z) == 1 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -921,21 +1022,21 @@ impl CPU6502{
         self.fetch();
         let tmp = self.a & self.fetched;
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
-        self.set_flag(Flags::N, self.fetched & (1 << 7) > 0);
-        self.set_flag(Flags::V, self.fetched & (1 << 6) > 0);
+        self.set_flag(Flags::N, (self.fetched & (1 << 7)) > 0);
+        self.set_flag(Flags::V, (self.fetched & (1 << 6)) > 0);
         return 0;
     }
 
     //Branch if negative
     fn BMI(&mut self) -> u8{
         if self.get_flag(Flags::N) == 1 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -945,13 +1046,14 @@ impl CPU6502{
     //Branch if not equal 
     fn BNE(&mut self) -> u8{
         if self.get_flag(Flags::Z) == 0 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
+
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -961,13 +1063,14 @@ impl CPU6502{
     //Branch if positive
     fn BPL(&mut self) -> u8{
         if self.get_flag(Flags::N) == 0 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
+            
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -976,11 +1079,12 @@ impl CPU6502{
 
     //Break
     fn BRK(&mut self) -> u8{
-        self.pc = self.pc + 1;
+        self.add_pc();
 	
         self.set_flag(Flags::I, true);
         let addr = 0x0100 + self.sptr as u16;
-        let mut data = (self.pc >> 8) as u8 & 0x00FF;
+        let mut data = ((self.pc >> 8) as u8) & 0x00FF;
+
         self.write(addr, &mut data);
         self.subtract_stack();
         self.write(0x0100 + self.sptr as u16, &mut ((self.pc & 0x00FF) as u8));
@@ -992,20 +1096,21 @@ impl CPU6502{
         self.subtract_stack();
         self.set_flag(Flags::B, false);
     
-        self.pc = self.read(0xFFFE) as u16 | ((self.read(0xFFFF) as u16) << 8);
+        self.pc = (self.read(0xFFFE) as u16) | ((self.read(0xFFFF) as u16) << 8);
         return 0;
     }
 
     //Branch if overflow 0
     fn BVC(&mut self) -> u8{
         if self.get_flag(Flags::V) == 0 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
+
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -1015,13 +1120,13 @@ impl CPU6502{
     //Branch if overflow 1
     fn BVS(&mut self) -> u8{
         if self.get_flag(Flags::V) == 1 {
-            self.cycles = self.cycles + 1;
+            self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
             let wrapped_addr = Wrapping(self.addr_relative);
             self.addr_absolute = (wrapped_pc + wrapped_addr).0;
 
-            if self.addr_absolute & 0xFF00 != self.pc & 0xFF00{
-                self.cycles = self.cycles + 1;
+            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00){
+                self.cycles += 1;
             }
             self.pc = self.addr_absolute;
         }
@@ -1057,9 +1162,12 @@ impl CPU6502{
         self.fetch();
         let tmp_a = Wrapping(self.a as u16);
         let tmp_fetched = Wrapping(self.fetched as u16);
+
         let tmp = (tmp_a - tmp_fetched).0;
+
         self.set_flag(Flags::C, self.a >= self.fetched);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
+        let tf = (tmp & 0x0080);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
         return 0;
     }
@@ -1091,8 +1199,13 @@ impl CPU6502{
     //Decrement value
     fn DEC(&mut self) -> u8{
         self.fetch();
-        let tmp = self.fetched - 1;
-        self.write(self.addr_absolute, &mut (tmp & 0x00FF));
+        let mut tmp: u16 = 0;
+        if self.fetched == 0{
+            tmp = 65535;
+        }else{
+            tmp = (self.fetched as u16) - 1;
+        }
+        self.write(self.addr_absolute, &mut (tmp as u8 & 0x00FF));
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);    //Check
         return 0;
@@ -1136,7 +1249,10 @@ impl CPU6502{
     //Increment value
     fn INC(&mut self) -> u8{
         self.fetch();
-        let tmp = self.fetched + 1;
+        let mut tmp = 0;
+        if self.fetched != 255{
+            tmp = self.fetched + 1;
+        }
         self.write(self.addr_absolute, &mut (tmp & 0x00FF));
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
@@ -1175,11 +1291,11 @@ impl CPU6502{
 
     //Jump to sub-routine
     fn JSR(&mut self) -> u8{
-        self.pc = self.pc - 1;
+        self.pc -= 1;
 
-        self.write(0x0100 + self.sptr as u16, &mut ((self.pc >> 8) & 0x00FF).to_be_bytes()[1]);
+        self.write(0x0100 + self.sptr as u16, &mut ((self.pc >> 8) as u8 & 0x00FF));
         self.subtract_stack();
-        self.write(0x0100 + self.sptr as u16, &mut (self.pc & 0x00FF).to_be_bytes()[1]);
+        self.write(0x0100 + self.sptr as u16, &mut (self.pc as u8 & 0x00FF));
         self.subtract_stack();
     
         self.pc = self.addr_absolute;
@@ -1216,7 +1332,7 @@ impl CPU6502{
     //Shift Right
     fn LSR(&mut self) -> u8{
         self.fetch();
-        self.set_flag(Flags::C, (self.fetched & 0x0001) == 1);
+        self.set_flag(Flags::C, (self.fetched & 0x0001) > 0);
         let tmp = self.fetched >> 1;	
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
@@ -1270,9 +1386,9 @@ impl CPU6502{
 
     //Pop accumulator
     fn PLA(&mut self) -> u8{
-        self.sptr = self.sptr + 1;
-        let data = 0x0100 + self.sptr as u16;
-        self.a = self.read(data);
+        self.add_stack(); 
+        let addr = 0x0100 + self.sptr as u16;
+        self.a = self.read(addr);
 
         self.set_flag(Flags::Z, self.a == 0x000);
         self.set_flag(Flags::N, (self.a & 0x80) > 0);
@@ -1281,7 +1397,7 @@ impl CPU6502{
 
     //Pop Register
     fn PLP(&mut self) -> u8{
-        self.sptr = self.sptr + 1;
+        self.add_stack();       
         self.sr = self.read(0x0100 + self.sptr as u16);
         self.set_flag(Flags::U, true);
         return 0;
@@ -1291,30 +1407,31 @@ impl CPU6502{
     fn ROL(&mut self) -> u8{
         self.fetch();
         let tmp = (self.fetched << 1) as u16 | (self.get_flag(Flags::C)) as u16;
-        self.set_flag(Flags::C, (tmp & 0xFF00) == 1);
+        self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
-            self.a = (tmp & 0x00FF).to_be_bytes()[1];
+            self.a = tmp as u8 & 0x00FF;
         }
         else{
-            self.write(self.addr_absolute, &mut ((tmp & 0x00FF).to_be_bytes()[1]));
+            self.write(self.addr_absolute, &mut ((tmp as u8) & 0x00FF));
 
         }
         return 0;
     }
 
+
     //Rotate right
     fn ROR(&mut self) -> u8{
         self.fetch();
         let tmp = ((self.get_flag(Flags::C) << 7) | (self.fetched >> 1)) as u16;
-        self.set_flag(Flags::C, (self.fetched & 0x01) == 1);
+        self.set_flag(Flags::C, (self.fetched & 0x01) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
-            self.a = (tmp & 0x00FF).to_be_bytes()[1];
+            self.a = tmp as u8 & 0x00FF;
         }else{
-            self.write(self.addr_absolute, &mut ((tmp & 0x00FF).to_be_bytes()[1]));
+            self.write(self.addr_absolute, &mut ((tmp as u8 & 0x00FF)));
 
         }
         return 0;
@@ -1322,29 +1439,28 @@ impl CPU6502{
 
     //Return from interrupt
     fn RTI(&mut self) -> u8{
-        self.sptr = self.sptr + 1;
+        self.add_stack(); 
         self.sr = self.read(0x0100 + self.sptr as u16);
-        self.sr &= Flags::B.bits;
-        self.sr &= Flags::U.bits;
+        self.sr &= !Flags::B.bits;
+        self.sr &= !Flags::U.bits;
 
-        self.sptr = self.sptr + 1;
+        self.add_stack();
         let sptr = self.sptr as u16;
         self.pc = self.read(0x0100 + sptr) as u16;
-        self.sptr = self.sptr + 1;
+        self.add_stack();         
         let sptr = self.sptr as u16;
         self.pc |= (self.read(0x0100 + sptr as u16) as u16) << 8;
-
         return 0;
     }
 
     //Return from sub-routine
     fn RTS(&mut self) -> u8{
-        self.sptr = self.sptr + 1;
+        self.add_stack(); 
         self.pc = self.read(0x0100 + self.sptr as u16) as u16;
-        self.sptr = self.sptr + 1;
+        self.add_stack(); 
         self.pc |= (self.read(0x0100 + self.sptr as u16) as u16) << 8;
         
-        self.pc = self.pc + 1;
+        self.add_pc();
         return 0;
     }
 
@@ -1368,8 +1484,8 @@ impl CPU6502{
 
     //Store accumulator 
     fn STA(&mut self) -> u8{
-        let mut sr = self.a;
-        self.write(self.addr_absolute, &mut sr);
+        let mut a = self.a;
+        self.write(self.addr_absolute, &mut a);
 
         return 0;
     }
@@ -1433,7 +1549,7 @@ impl CPU6502{
     fn TYA(&mut self) -> u8{
         self.a = self.y;
 	    self.set_flag(Flags::Z, self.a == 0x00);
-	    self.set_flag(Flags::N, (self.a & 0x80) > 1);
+	    self.set_flag(Flags::N, (self.a & 0x80) > 0);
         return 0;
     }
 

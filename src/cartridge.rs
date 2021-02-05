@@ -76,7 +76,7 @@ impl Cartridge {
         let mut header: [u8; 16] = [0; 16];
         file.read_exact(&mut header)?;
         let cartridge_header = CartridgeHeader::new(&header);
-        if (cartridge_header.mapper_1 & 0x04) == 1 
+        if (cartridge_header.mapper_1 & 0x04) > 0
         {
             file.seek(SeekFrom::Current(512)).unwrap();
         }
