@@ -214,7 +214,7 @@ impl CPU6502{
         let mut file = OpenOptions::new()
         .write(true)
         .append(true)
-        .open("/Users/multivac/NES/source/src/nes-log")
+        .open("/Users/multivac/NES/source/src/logs/nes-log.txt")
         .unwrap();
 
         let mut text = "PC:".to_owned();
@@ -282,9 +282,9 @@ impl CPU6502{
             self.set_flag(Flags::U, true);
 
             self.opcode = self.read(self.pc);
-            if self.pc == 39948{
-                println!("yugh");
-            }
+            // if self.pc == 32855 {
+            //     println!("yugh");
+            // }
             self.add_pc();
             self.cycles = self.lookup[self.opcode as usize].cycles;
 
@@ -797,7 +797,9 @@ impl CPU6502 {
         self.add_pc();
 
         self.addr_absolute = (high << 8 ) | low;
-        self.addr_absolute += self.x as u16;
+        let wrapped_x = Wrapping(self.x as u16);
+        let wrapped_addr = Wrapping(self.addr_absolute);
+        self.addr_absolute = (wrapped_x + wrapped_addr).0;
 
         if(self.addr_absolute & 0xFF00) != (high << 8){
             return 1;
@@ -814,7 +816,10 @@ impl CPU6502 {
         self.add_pc();
 
         self.addr_absolute = (high << 8 ) | low;
-        self.addr_absolute += self.y as u16;
+
+        let wrapped_y = Wrapping(self.y as u16);
+        let wrapped_addr = Wrapping(self.addr_absolute);
+        self.addr_absolute = (wrapped_y + wrapped_addr).0;
 
         if(self.addr_absolute & 0xFF00) != (high << 8){
             return 1;
@@ -834,16 +839,16 @@ impl CPU6502 {
 
         if ptr_low == 0x00FF 
         {
-            let low = self.read(((ptr as u16) & 0xFF00) << 8) as u16;
+            let addr = (ptr & 0xFF00);
+            let low = (self.read(addr) as u16) << 8;
             let high = self.read(ptr) as u16;
-            self.addr_absolute = (low | high) as u16; //OVERFLOW
+            self.addr_absolute = (low | high); //OVERFLOW
         }
         else 
         {
-            let addr_1 = (ptr as u16 + 1);
-            let low = self.read(addr_1) as u16;
+            let low = (self.read((ptr as u16) + 1) as u16) << 8;
             let high = self.read(ptr) as u16;
-            self.addr_absolute = (low << 8 | high) as u16; //OVERFLOW
+            self.addr_absolute = (low | high) as u16; //OVERFLOW
         }
         
         return 0;
@@ -897,16 +902,16 @@ impl CPU6502{
     fn ADC(&mut self) -> u8{
         self.fetch();
         
-        let tmp = self.a as u16 + self.fetched as u16 + self.get_flag(Flags::C) as u16;
+        let tmp = (self.a as u16) + (self.fetched as u16) + (self.get_flag(Flags::C) as u16);
 
         self.set_flag(Flags::C, tmp > 255);
 
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0);
 
-        let result = (!(self.a as u16 ^ self.fetched as u16) & (self.a as u16^ tmp)) & 0x0080;
-        self.set_flag(Flags::V, ((!(self.a as u16 ^ self.fetched as u16) & (self.a as u16^ tmp)) & 0x0080) > 0);
+        self.set_flag(Flags::V, ((!((self.a as u16) ^ (self.fetched as u16)) & ((self.a as u16) ^ tmp)) & 0x0080) > 0);
 
-        self.a = tmp as u8 & 0x00FF;
+        self.set_flag(Flags::N, (tmp & 0x80) > 0);
+        self.a = (tmp as u8) & 0x00FF;
         return 1;
     }
 
@@ -914,18 +919,15 @@ impl CPU6502{
     fn SBC(&mut self) -> u8{
         self.fetch();
 
-        let inversion = self.fetched as u16 ^ 0x00FF;
-
-        let tmp = self.a as u16 + inversion + self.get_flag(Flags::C) as u16;
+        let inversion = (self.fetched as u16) ^ 0x00FF;
+        let tmp = (self.a as u16) + inversion + (self.get_flag(Flags::C) as u16);
 
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0);
 
         let a16 = self.a as u16;
-        let fetched16 = self.fetched as u16;
-
-        let flag = (!(a16 ^ fetched16) & (a16 ^ tmp)) & 0x0080;
-        if flag == 1{
+        let flag = ((tmp ^ a16) & (tmp ^ inversion)) & 0x0080;
+        if flag > 0 {
             self.set_flag(Flags::V, true);
         }else{
             self.set_flag(Flags::V, false);
@@ -944,7 +946,7 @@ impl CPU6502{
         self.a = self.a & self.fetched;
         self.set_flag(Flags::Z, self.a == 0x00);
 
-        if self.a & 0x80 > 0 {
+        if (self.a & 0x80) > 0 {
             self.set_flag(Flags::N, true);
         }else{
             self.set_flag(Flags::N, false)
@@ -955,7 +957,7 @@ impl CPU6502{
     //Shift left
     fn ASL(&mut self) -> u8{
         self.fetch();
-        let tmp = (self.fetched << 1) as u16;
+        let tmp = (self.fetched as u16) << 1;
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
         self.set_flag(Flags::N, (tmp & 0x80) > 0);
@@ -1293,9 +1295,9 @@ impl CPU6502{
     fn JSR(&mut self) -> u8{
         self.pc -= 1;
 
-        self.write(0x0100 + self.sptr as u16, &mut ((self.pc >> 8) as u8 & 0x00FF));
+        self.write(0x0100 + (self.sptr as u16), &mut (((self.pc >> 8) as u8) & 0x00FF));
         self.subtract_stack();
-        self.write(0x0100 + self.sptr as u16, &mut (self.pc as u8 & 0x00FF));
+        self.write(0x0100 + (self.sptr as u16), &mut ((self.pc as u8) & 0x00FF));
         self.subtract_stack();
     
         self.pc = self.addr_absolute;

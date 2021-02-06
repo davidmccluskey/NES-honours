@@ -96,25 +96,25 @@ fn main() -> Result<(), String> {
         unsafe { Box::new(std::mem::transmute(tex2)) }
     };
 
-    // let tx3 = canvas.texture_creator();
-    // let mut pattern_two: Box<sdl2::render::Texture> = {
-    //     let tex3 = tx3
-    //         .create_texture(
-    //             PixelFormatEnum::RGB24,
-    //             TextureAccess::Streaming,
-    //             128 as u32,
-    //             128 as u32,
-    //         )
-    //         .unwrap();
-    //     unsafe { Box::new(std::mem::transmute(tex3)) }
-    // };
+    let tx3 = canvas.texture_creator();
+    let mut pattern_two: Box<sdl2::render::Texture> = {
+        let tex3 = tx3
+            .create_texture(
+                PixelFormatEnum::RGB24,
+                TextureAccess::Streaming,
+                128 as u32,
+                128 as u32,
+            )
+            .unwrap();
+        unsafe { Box::new(std::mem::transmute(tex3)) }
+    };
 
     // Load a font
     let mut font = ttf_context.load_font(font_path, 128)?;
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
     let mut nes = cpu_6502::CPU6502::new();
-    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
+    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/nestest.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
 
@@ -405,8 +405,8 @@ fn main() -> Result<(), String> {
         }
 
         render_frame(&mut canvas, &mut nes, rect!(0, 0, RENDER_WIDTH * 3, RENDER_HEIGHT* 3), &mut screen_texture);
-        render_pattern_table(&mut canvas, &mut nes, rect!(900, 500, 256, 256), &mut pattern_one, 0, palette);
-        //render_pattern_table(&mut canvas, &mut nes, rect!(1030, 580, 256, 256), &mut pattern_two, 1);
+        // render_pattern_table(&mut canvas, &mut nes, rect!(900, 500, 256, 256), &mut pattern_one, 0, palette);
+        // render_pattern_table(&mut canvas, &mut nes, rect!(1030, 580, 256, 256), &mut pattern_two, 1, palette);
         
         canvas.present();
     }
