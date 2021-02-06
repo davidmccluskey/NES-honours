@@ -3,6 +3,4 @@
 .vscode
 .DS_store
 /src/roms
-src/nes-log
-src/nes-log
-src/olc-log.txt
+/src/logs

@@ -282,7 +282,9 @@ impl CPU6502{
             self.set_flag(Flags::U, true);
 
             self.opcode = self.read(self.pc);
-
+            if self.pc == 39948{
+                println!("yugh");
+            }
             self.add_pc();
             self.cycles = self.lookup[self.opcode as usize].cycles;
 
@@ -954,16 +956,15 @@ impl CPU6502{
     fn ASL(&mut self) -> u8{
         self.fetch();
         let tmp = (self.fetched << 1) as u16;
-        let temp = self.fetched << 1;
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
         self.set_flag(Flags::N, (tmp & 0x80) > 0);
 
         if self.lookup[self.opcode as usize].addr_name == "IMP"{
-            self.a = temp & 0x00FF;
+            self.a = (tmp & 0x00FF) as u8;
         }
         else{
-            self.write(self.addr_absolute, &mut (temp & 0x00FF));
+            self.write(self.addr_absolute, &mut ((tmp & 0x00FF) as u8));
         }
         return 0;
     }
@@ -1405,7 +1406,9 @@ impl CPU6502{
     //Rotate left
     fn ROL(&mut self) -> u8{
         self.fetch();
-        let tmp = (self.fetched << 1) as u16 | (self.get_flag(Flags::C)) as u16;
+        let shift = (self.fetched as u16) << 1;
+        let tmp = shift | (self.get_flag(Flags::C)) as u16;
+        let t = (tmp & 0xFF00);
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
