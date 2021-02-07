@@ -122,7 +122,6 @@ impl PPU {
             bg_shifter_attr_high: 0,
         }
     }
-
     pub fn cpu_read(&mut self, addr: u16, read_only: bool) -> u8 {
         let mut data: u8 = 0x00;
         match addr {
@@ -274,11 +273,10 @@ impl PPU {
                 if addr == 0x001C {
                     addr = 0x000C
                 }
-                let addr_u8 = addr as u8;
                 if self.mask.greyscale() == true{
-                    data = self.palette_table[addr_u8 as usize] & 0x30;
+                    data = self.palette_table[addr as usize] & 0x30;
                 }else{
-                    data = self.palette_table[addr_u8 as usize] & 0x3F;
+                    data = self.palette_table[addr as usize] & 0x3F;
                 }
             }
         }
@@ -342,8 +340,7 @@ impl PPU {
                 if addr == 0x001C {
                     addr = 0x000C
                 }
-                let addr_u8 = addr as u8;
-                self.palette_table[addr_u8 as usize] = *data;
+                self.palette_table[addr as usize] = *data;
             }
         }
     }
@@ -402,7 +399,7 @@ impl PPU {
     }
 
     pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8 {
-        let addr: u16 = 0x3F00 + (palette << 2) as u16 + pixel as u16;
+        let addr: u16 = 0x3F00 + ((palette << 2) as u16) + pixel as u16;
         let i = self.ppu_read(addr, false);
         return i & 0x3F;
     }
@@ -484,13 +481,6 @@ impl PPU {
         self.controller = Controller(0);
         self.v_address_register = Address(0);
         self.t_address_register = Address(0);
-
-        // self.name_table = [[0; 1024]; 2];
-        // self.palette_table = [0; 32];
-        // self.pattern_table = [[0; 4096]; 2];
-        // self.frame_complete = false;
-        // self.sprite_screen = [2; RENDER_SIZE];
-        // self.sprite_pattern_table = [[0; 128 * 128]; 2];
     }
     fn load_bg_shifters(&mut self) {
         self.bg_shifter_lsb = (self.bg_shifter_lsb & 0xFF00) | (self.bg_tile_lsb as u16);
@@ -542,8 +532,8 @@ impl PPU {
                             0x23C0
                                 | ((self.v_address_register.nametable_y() as u16) << 11)
                                 | ((self.v_address_register.nametable_x() as u16) << 10)
-                                | (((self.v_address_register.coarse_y() as u16) >> 2) << 3)
-                                | ((self.v_address_register.coarse_x() as u16) >> 2), false);
+                                | (((self.v_address_register.coarse_y()) >> 2) << 3) as u16
+                                | ((self.v_address_register.coarse_x()) >> 2) as u16, false);
 
                         if (self.v_address_register.coarse_y() & 0x02) > 0 {
                             self.bg_tile_attr >>= 4;
@@ -555,13 +545,13 @@ impl PPU {
                     }
                     4 => {
                         self.bg_tile_lsb = self.ppu_read(
-                            ((self.controller.background_table() as u16) << 12)
+                            ((self.controller.background_table()as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
                                 + ((self.v_address_register.fine_y() as u16) + 0),
                             false);
                     }
                     6 => {
-                        self.bg_tile_lsb = self.ppu_read(
+                        self.bg_tile_msb = self.ppu_read(
                             ((self.controller.background_table() as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
                                 + ((self.v_address_register.fine_y() as u16) + 8),
@@ -606,8 +596,8 @@ impl PPU {
             let plane_1 = ((self.bg_shifter_msb & bit_mask) > 0) as u8;
             background_pixel = (plane_1 << 1) | plane_0;
 
-            let palette_0 = ((self.bg_shifter_attr_low & bit_mask) > 0) as u8;
-            let palette_1 = ((self.bg_shifter_attr_high & bit_mask) > 0) as u8;
+            let palette_0 = ((self.bg_shifter_attr_low & bit_mask) >0) as u8;
+            let palette_1 = ((self.bg_shifter_attr_high & bit_mask) >0) as u8;
 
             background_palette = (palette_1 << 1) | palette_0;
         }
