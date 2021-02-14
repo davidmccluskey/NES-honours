@@ -11,10 +11,19 @@ pub const RENDER_FULL: usize = RENDER_SIZE * 3;
 bitfield! {
     #[derive(Copy, Clone)]
     pub struct Status(u8);
-    pub sprite_overflow, set_sprite_overflow:        5;
-    pub sprite_0, set_sprite_0:        6;
-    pub vertical_blank,          set_vblank:                 7;
-    pub get,             _:                      7,  0;
+    pub sprite_overflow, set_sprite_overflow: 5;
+    pub sprite_0, set_sprite_0:     6;
+    pub vertical_blank, set_vblank: 7;
+    pub get,_:                      7,  0;
+}
+bitfield! {
+    #[derive(Copy, Clone, PartialEq)]
+    pub struct SpriteStatus(u8);
+    impl Debug;
+    pub palette,            _: 1, 0;
+    pub behind_background,  _:    5;
+    pub flip_x,             _:    6;
+    pub flip_y,             _:    7;
 }
 bitfield! {
     #[derive(Copy, Clone)]
@@ -27,33 +36,33 @@ bitfield! {
     pub emphasize_red,          _: 5;
     pub emphasize_green,        _: 6;
     pub emphasize_blue,         _: 7;
-    pub get,             _:                      7,  0;
+    pub get,                    _: 7,  0;
 }
 bitfield! {
     #[derive(Copy, Clone)]
     pub struct Controller(u8);
-    pub nametable_x,                    _:   0;
-    pub nametable_y,                    _:   1;
+    pub nametable_x,            _:    0;
+    pub nametable_y,            _:    1;
     pub increment,              _:    2;
     pub sprite_table,           _:    3;
     pub background_table,       _:    4;
     pub sprite_size,            _:    5;
     pub master_slave,           _:    6;
     pub generate_nmi,           _:    7;
-    pub get,             _:                      7,  0;
+    pub get,                    _:    7,  0;
 }
 
 bitfield! {
     #[derive(Copy, Clone, PartialEq)]
     pub struct Address(u16);
     impl Debug;
-    pub u8,  coarse_x,   set_coarse_x:    4,  0;
-    pub u8,  coarse_y,   set_coarse_y:    9,  5;
-    pub u8,  nametable_x,  set_nametable_x:      10;
-    pub u8,  nametable_y,  set_nametable_y:      11;
-    pub u8,  fine_y,     set_fine_y:     14, 12;
-    pub u8, unused,     _:                     15;
-    pub u16, get,        _:              15,  0; // Full data
+    pub u8,  coarse_x,   set_coarse_x:          4,  0;
+    pub u8,  coarse_y,   set_coarse_y:          9,  5;
+    pub u8,  nametable_x,  set_nametable_x:     10;
+    pub u8,  nametable_y,  set_nametable_y:     11;
+    pub u8,  fine_y,     set_fine_y:            14, 12;
+    pub u8,  unused,     _:                     15;
+    pub u16, get,        _:                     15,  0; // Full data
 }
 
 pub struct PPU {
@@ -69,6 +78,7 @@ pub struct PPU {
     scanline: i32,
     cycle: i32,
 
+    //Background rendering
     controller: Controller,
     mask: Mask,
     status: Status,
@@ -78,7 +88,6 @@ pub struct PPU {
     address_latch: u8,
     data_buffer: u8,
     pub nmi_enabled: bool,
-
     bg_tile_id: u8,
     bg_tile_attr: u8,
     bg_tile_lsb: u8,
@@ -88,6 +97,35 @@ pub struct PPU {
     bg_shifter_msb: u16,
     bg_shifter_attr_low: u16,
     bg_shifter_attr_high: u16,
+
+    //Foreground Rendering
+    pub oam_ram: [u8; 256],
+    oam_sprites: Vec<Sprite>,
+    pub oam_addr_port: u8,
+    sprite_shifter_low: [u8; 8],
+    sprite_shifter_high: [u8; 8],
+
+    sprite_zero_hit: bool,
+    sprite_zero_rendered: bool,
+
+}
+
+struct Sprite {
+    x: u8,
+    y: u8,
+    id: u8,
+    attribute: u8, 
+}
+
+impl Sprite {
+    pub fn new(oam_index: usize, bytes: &[u8]) -> Self {
+        Sprite {
+            y: bytes[0],
+            id: bytes[1],
+            attribute: bytes[2],
+            x: bytes[3],
+        }
+    }
 }
 
 impl PPU {
@@ -99,15 +137,17 @@ impl PPU {
             pattern_table: [[0; 4096]; 2],
             frame_complete: false,
             sprite_screen: [2; RENDER_SIZE],
-            //sprite_name_table: [[0; 256 * 240]; 2],
             sprite_pattern_table: [[0; 128 * 128]; 2],
             scanline: 0,
             cycle: 0,
+
             controller: Controller(0),
             mask: Mask(0),
             status: Status(0),
+
             v_address_register: Address(0),
             t_address_register: Address(0),
+
             fine_x: 0,
             address_latch: 0,
             data_buffer: 0,
@@ -120,6 +160,15 @@ impl PPU {
             bg_shifter_msb: 0,
             bg_shifter_attr_low: 0,
             bg_shifter_attr_high: 0,
+
+            oam_ram: [0; 256],
+            oam_sprites: Vec::with_capacity(8),
+            oam_addr_port: 0,
+            sprite_shifter_low: [0; 8],
+            sprite_shifter_high: [0; 8],
+
+            sprite_zero_hit: false,
+            sprite_zero_rendered: false,
         }
     }
     pub fn cpu_read(&mut self, addr: u16, read_only: bool) -> u8 {
@@ -135,7 +184,10 @@ impl PPU {
                 self.address_latch = 0;
             }
             0x0003 => (), //OAM Address
-            0x0004 => (), //OAM Data
+            0x0004 => {
+                //OAM Data
+                data = self.oam_ram[self.oam_addr_port as usize];
+            }
             0x0005 => (), //Scroll
             0x0006 => (), //PPU Address
             0x0007 => {
@@ -163,13 +215,26 @@ impl PPU {
             0x0000 => {
                 //Control
                 self.controller = Controller(*data);
-                self.t_address_register.set_nametable_x(self.controller.nametable_x());
-                self.t_address_register.set_nametable_y(self.controller.nametable_y());
+                self.t_address_register
+                    .set_nametable_x(self.controller.nametable_x());
+                self.t_address_register
+                    .set_nametable_y(self.controller.nametable_y());
             }
-            0x0001 => self.mask = Mask(*data), //Mask
-            0x0002 => (),                      //Status
-            0x0003 => (),                      //OAM Address
-            0x0004 => (),                      //OAM Data
+            0x0001 => {
+                //Mask
+                self.mask = Mask(*data)
+            }
+            0x0002 => {
+                //Status
+            }
+            0x0003 => {
+                //OAM Address
+                self.oam_addr_port = *data;
+            }
+            0x0004 => {
+                //OAM Data
+                self.oam_ram[self.oam_addr_port as usize] = *data;
+            }
             0x0005 => {
                 //Scroll
                 if self.address_latch == 0 {
@@ -182,11 +247,11 @@ impl PPU {
                     self.address_latch = 0;
                 }
             }
-            0x0006 =>
-            //PPU Address
-            {
+            0x0006 => {
+                //PPU Address
                 if self.address_latch == 0 {
-                    let t_addr = (((*data & 0x3F) as u16) << 8) | (self.t_address_register.get() & 0x00FF);
+                    let t_addr =
+                        (((*data & 0x3F) as u16) << 8) | (self.t_address_register.get() & 0x00FF);
                     self.t_address_register = Address(t_addr);
                     self.address_latch = 1;
                 } else {
@@ -219,15 +284,13 @@ impl PPU {
         if let Some(ref c) = self.cartridge {
             if c.borrow_mut().ppu_read(addr, &mut data) {
                 //Should always be false
-            } 
-            else if addr >= 0x0000 && addr <= 0x1FFF {
+            } else if addr >= 0x0000 && addr <= 0x1FFF {
                 //Pattern memory
                 //First index chooses whether it's the left or the right pattern table, second is index within that table
                 let first_index = ((addr & 0x1000) >> 12) as usize;
                 let second_index = (addr & 0x0FFF) as usize;
                 data = self.pattern_table[first_index][second_index];
-            } 
-            else if addr >= 0x2000 && addr <= 0x3EFF {
+            } else if addr >= 0x2000 && addr <= 0x3EFF {
                 //Nametable memory
                 addr &= 0x0FFF;
                 if c.borrow_mut().mirror == cartridge::Mirroring::Vertical {
@@ -257,8 +320,7 @@ impl PPU {
                         data = self.name_table[1][(addr & 0x03FF) as usize];
                     }
                 }
-            } 
-            else if addr >= 0x3F00 && addr <= 0x3FFF {
+            } else if addr >= 0x3F00 && addr <= 0x3FFF {
                 //Palette memory
                 addr &= 0x001F;
                 if addr == 0x0010 {
@@ -273,9 +335,9 @@ impl PPU {
                 if addr == 0x001C {
                     addr = 0x000C
                 }
-                if self.mask.greyscale() == true{
+                if self.mask.greyscale() == true {
                     data = self.palette_table[addr as usize] & 0x30;
-                }else{
+                } else {
                     data = self.palette_table[addr as usize] & 0x3F;
                 }
             }
@@ -289,13 +351,11 @@ impl PPU {
         if let Some(ref c) = self.cartridge {
             if c.borrow_mut().ppu_write(addr, data) {
                 //Should always be false
-            } 
-            else if addr >= 0x0000 && addr <= 0x1FFF {
+            } else if addr >= 0x0000 && addr <= 0x1FFF {
                 //Pattern memory, usually a ROM however some games need to write to it
                 let first_index = ((addr & 0x1000) >> 12) as usize;
                 self.pattern_table[first_index][(addr & 0x0FFF) as usize] = *data;
-            } 
-            else if addr >= 0x2000 && addr <= 0x3EFF {
+            } else if addr >= 0x2000 && addr <= 0x3EFF {
                 //Nametable memory
                 addr &= 0x0FFF;
                 if c.borrow_mut().mirror == cartridge::Mirroring::Vertical {
@@ -385,7 +445,6 @@ impl PPU {
         }
         return frame;
     }
-    
     pub fn render_palette(&self, index: u8) -> [u8; (128 * 128) * 3] {
         let mut frame = [0; (128 * 128) * 3];
         for i in 0..(128 * 128) {
@@ -405,7 +464,7 @@ impl PPU {
     }
 
     fn draw_pixel(&mut self, x: i32, y: i32, c: SystemColor) {
-        if x >=0 && y >= 0 && x < 256 && y < 240{
+        if x >= 0 && y >= 0 && x < 256 && y < 240 {
             let i = (x + 256 * y) as usize;
             self.sprite_screen[i] = c;
         }
@@ -422,7 +481,7 @@ impl PPU {
                 self.v_address_register.set_coarse_x(0);
                 let nx = self.v_address_register.nametable_x();
                 self.v_address_register.0 ^= 0x0400;
-                //self.v_address_register.set_nametable_x(!nx);
+            //self.v_address_register.set_nametable_x(!nx);
             } else {
                 let nx = self.v_address_register.coarse_x();
                 self.v_address_register.set_coarse_x(nx + 1);
@@ -432,13 +491,13 @@ impl PPU {
     fn scroll_y(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
             if self.v_address_register.fine_y() < 7 {
-                self.v_address_register.set_fine_y(self.v_address_register.fine_y() + 1);
+                self.v_address_register
+                    .set_fine_y(self.v_address_register.fine_y() + 1);
             } else {
                 self.v_address_register.set_fine_y(0);
                 if self.v_address_register.coarse_y() == 29 {
                     self.v_address_register.set_coarse_y(0);
                     self.v_address_register.0 ^= 0x0800; // Switch vertical nametable
-
                 } else if self.v_address_register.coarse_y() == 31 {
                     self.v_address_register.set_coarse_y(0);
                 } else {
@@ -450,15 +509,20 @@ impl PPU {
     }
     fn reset_x(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            self.v_address_register.set_nametable_x(self.t_address_register.nametable_x());
-            self.v_address_register.set_coarse_x(self.t_address_register.coarse_x());
+            self.v_address_register
+                .set_nametable_x(self.t_address_register.nametable_x());
+            self.v_address_register
+                .set_coarse_x(self.t_address_register.coarse_x());
         }
     }
     fn reset_y(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            self.v_address_register.set_fine_y(self.t_address_register.fine_y());
-            self.v_address_register.set_nametable_y(self.t_address_register.nametable_y());
-            self.v_address_register.set_coarse_y(self.t_address_register.coarse_y());
+            self.v_address_register
+                .set_fine_y(self.t_address_register.fine_y());
+            self.v_address_register
+                .set_nametable_y(self.t_address_register.nametable_y());
+            self.v_address_register
+                .set_coarse_y(self.t_address_register.coarse_y());
         }
     }
 
@@ -507,7 +571,65 @@ impl PPU {
             self.bg_shifter_lsb <<= 1;
             self.bg_shifter_msb <<= 1;
         }
+        if self.mask.show_sprites() && self.cycle >= 1 && self.cycle < 258{
+            for i in 0..self.oam_sprites.len()
+            {
+                if self.oam_sprites[i].x > 0
+                {
+                    self.oam_sprites[i].x -= 1;
+                }
+                else
+                {
+                    self.sprite_shifter_low[i] <<= 1;
+                    self.sprite_shifter_high[i] <<= 1;
+                }
+            }
+        }
     }
+
+    fn evaluate_sprites(&mut self) {
+        self.oam_sprites.clear();
+        self.sprite_zero_hit = false;
+        for i in 0..64 {
+            let addr = i * 4;
+            let sprite = Sprite::new(i, &self.oam_ram[addr..addr + 4]);
+
+            let left = self.scanline as usize >= sprite.y as usize;
+
+            let mut right = false;
+            if self.controller.sprite_size() 
+            {
+                right = (self.scanline as usize) < sprite.y as usize + 16 as usize;
+            }else
+            {
+                right = (self.scanline as usize) < sprite.y as usize + 8 as usize;
+            }
+
+            if left && right
+            {
+                if self.oam_sprites.len() == 8 {
+                    self.status.set_sprite_overflow(true);
+                    break;
+                }
+                if i == 0
+                {
+                    self.sprite_zero_hit = true;
+                }
+                self.oam_sprites.push(sprite);
+            }
+        }
+    }
+
+    fn reverse_bits(mut a: u8) -> u8 {
+        let mut out = 0u8;
+        for i in 0..8 {
+            out <<= 1;
+            out |= a & 1;
+            a >>= 1;
+        }
+        return out;
+    }
+
     pub fn clock(&mut self) {
         if self.scanline >= -1 && self.scanline < 240 {
             if self.scanline == 0 && self.cycle == 0 {
@@ -516,6 +638,13 @@ impl PPU {
 
             if self.scanline == -1 && self.cycle == 1 {
                 self.status.set_vblank(false);
+                self.status.set_sprite_0(false);
+                self.status.set_sprite_overflow(false);
+
+                for i in 0..8{
+                    self.sprite_shifter_low[i] = 0;
+                    self.sprite_shifter_high[i] = 0;
+                }
             }
 
             if (self.cycle >= 2 && self.cycle < 258) || (self.cycle >= 321 && self.cycle < 338) {
@@ -533,7 +662,9 @@ impl PPU {
                                 | ((self.v_address_register.nametable_y() as u16) << 11)
                                 | ((self.v_address_register.nametable_x() as u16) << 10)
                                 | (((self.v_address_register.coarse_y()) >> 2) << 3) as u16
-                                | ((self.v_address_register.coarse_x()) >> 2) as u16, false);
+                                | ((self.v_address_register.coarse_x()) >> 2) as u16,
+                            false,
+                        );
 
                         if (self.v_address_register.coarse_y() & 0x02) > 0 {
                             self.bg_tile_attr >>= 4;
@@ -545,10 +676,11 @@ impl PPU {
                     }
                     4 => {
                         self.bg_tile_lsb = self.ppu_read(
-                            ((self.controller.background_table()as u16) << 12)
+                            ((self.controller.background_table() as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
                                 + ((self.v_address_register.fine_y() as u16) + 0),
-                            false);
+                            false,
+                        );
                     }
                     6 => {
                         self.bg_tile_msb = self.ppu_read(
@@ -572,11 +704,108 @@ impl PPU {
                 self.reset_x();
             }
             if self.cycle == 338 || self.cycle == 340 {
-                self.bg_tile_id = self.ppu_read(0x2000 | (self.v_address_register.get() & 0x0FFF), false);
+                self.bg_tile_id =
+                    self.ppu_read(0x2000 | (self.v_address_register.get() & 0x0FFF), false);
             }
-
             if self.scanline == -1 && self.cycle >= 280 && self.cycle < 305 {
                 self.reset_y();
+            }
+
+            //Sprite Rendering
+            if self.cycle == 257 && self.scanline >= 0 
+            {
+                for i in 0..8{
+                    self.sprite_shifter_low[i] = 0;
+                    self.sprite_shifter_high[i] = 0;
+                }
+                self.evaluate_sprites();
+            }
+            if self.cycle == 340
+            {
+                for i in 0..self.oam_sprites.len() 
+                {
+                    let mut sprite_bits_low: u8 = 0;
+                    let mut sprite_bits_high: u8 = 0;
+
+                    let mut sprite_addr_low: u16 = 0;
+                    let mut sprite_addr_high: u16 = 0;
+
+                    if !self.controller.sprite_size(){
+                        //8x8
+                        if !(self.oam_sprites[i].attribute & 0x80 > 0)
+                        {
+                            let low = (self.controller.sprite_table() as u16) << 12;
+                            let high = ((self.oam_sprites[i].id as u16) << 4);
+                            let sl = (self.scanline as u16) - self.oam_sprites[i].y as u16;
+
+                            sprite_addr_low = low | high | sl;
+                        }
+                        else    //Sprite is flipped
+                        {
+                            let low = (self.controller.sprite_table() as u16) << 12;
+                            let high = (self.oam_sprites[i].id as u16) << 4;
+                            let sl = (self.scanline as u16) - self.oam_sprites[i].y as u16;
+
+                            sprite_addr_low = low | high | 7 - sl;
+                        }
+                    }
+                    else
+                    {
+                        //8x16
+                        if !(self.oam_sprites[i].attribute & 0x80 > 0)
+                        {
+                            if (self.scanline as u16 - self.oam_sprites[i].y as u16) < 8{
+                                //Top half of sprite
+                                let low = ((self.oam_sprites[i].id as u16) & 0x01) << 12;
+                                let high = ((self.oam_sprites[i].id as u16) & 0xFE) << 4;
+                                let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
+
+                                sprite_addr_low = low | high | sl;
+
+                            }else
+                            {
+                                //Bottom half of sprite
+                                let low = ((self.oam_sprites[i].id  as u16) & 0x01) << 12;
+                                let high = (((self.oam_sprites[i].id as u16) & 0xFE) + 1) << 4;
+                                let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
+
+                                sprite_addr_low = low | high | sl;
+                            }
+                        }
+                        else    //Sprite is flipped
+                        {
+                            if (self.scanline as u16 - self.oam_sprites[i].y as u16) < 8{
+                                //Top half of sprite
+                                let low = ((self.oam_sprites[i].id as u16) & 0x01) << 12;
+                                let high = ((self.oam_sprites[i].id as u16) & 0xFE) << 4;
+                                let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
+                               
+                                sprite_addr_low = low | high | 7 - sl;
+
+                            }else
+                            {
+                                //Bottom half of sprite                               
+                                let low = ((self.oam_sprites[i].id as u16) & 0x01) << 12;
+                                let high = (((self.oam_sprites[i].id as u16) & 0xFE)+ 1) << 4;
+                                let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
+
+                                sprite_addr_low = low | high | 7 - sl; //KEEP AN EYE ON THIS WITH ABOVE & OPERATOR
+                            }
+                        }
+                    }
+
+                    sprite_addr_high = sprite_addr_low + 8;
+                    sprite_bits_low = self.ppu_read(sprite_addr_low, false);
+                    sprite_bits_high = self.ppu_read(sprite_addr_high, false);
+
+                    if (self.oam_sprites[i].attribute & 0x40) > 0{
+                        sprite_bits_low = PPU::reverse_bits(sprite_bits_low);
+                        sprite_bits_high = PPU::reverse_bits(sprite_bits_high);
+                    }
+
+                    self.sprite_shifter_low[i] = sprite_bits_low;
+                    self.sprite_shifter_high[i] = sprite_bits_high;
+                }
             }
         }
 
@@ -596,13 +825,92 @@ impl PPU {
             let plane_1 = ((self.bg_shifter_msb & bit_mask) > 0) as u8;
             background_pixel = (plane_1 << 1) | plane_0;
 
-            let palette_0 = ((self.bg_shifter_attr_low & bit_mask) >0) as u8;
-            let palette_1 = ((self.bg_shifter_attr_high & bit_mask) >0) as u8;
+            let palette_0 = ((self.bg_shifter_attr_low & bit_mask) > 0) as u8;
+            let palette_1 = ((self.bg_shifter_attr_high & bit_mask) > 0) as u8;
 
             background_palette = (palette_1 << 1) | palette_0;
         }
+        
+        let mut sprite_pixel: u8 = 0x00;
+        let mut sprite_pal: u8 = 0x00;
+        let mut sprite_z_buffer: u8 = 0x00;
 
-        let colour = self.get_colour(background_palette, background_pixel);
+        if self.mask.show_sprites(){
+            self.sprite_zero_rendered = false;
+            for i in 0..self.oam_sprites.len(){
+                if self.oam_sprites[i].x == 0 {
+                     let sp_pixel_low = ((self.sprite_shifter_low[i] & 0x80) > 0) as u8;
+                     let sp_pixel_high = ((self.sprite_shifter_high[i] & 0x80) > 0) as u8;
+
+                     sprite_pixel = (sp_pixel_high << 1) | sp_pixel_low;
+
+                     sprite_pal = (self.oam_sprites[i].attribute & 0x03) + 0x04;
+                     sprite_z_buffer = ((self.oam_sprites[i].attribute & 0x20) == 0) as u8;
+
+                     if sprite_pixel != 0
+                     {
+                        if i == 0
+                        {
+                            self.sprite_zero_rendered = true;
+                        }
+                        break;
+                     }
+                }
+            }
+        }
+
+        let mut final_pixel: u8 = 0x00;
+        let mut final_palette: u8 = 0x00;
+
+        if background_pixel == 0 && sprite_pixel == 0{
+            final_pixel = 0x00;
+            final_palette = 0x00;
+        }
+        else if background_pixel == 0 && sprite_pixel > 0
+        {
+            final_pixel = sprite_pixel;
+            final_palette = sprite_pal;
+        }        
+        else if background_pixel > 0 && sprite_pixel == 0
+        {
+            final_pixel = background_pixel;
+            final_palette = background_palette;
+        }
+        else if background_pixel > 0 && sprite_pixel > 0
+        {
+            if sprite_z_buffer > 0{
+                final_pixel = sprite_pixel;
+                final_palette = sprite_pal;
+            }
+            else
+            {
+                final_pixel = background_pixel;
+                final_palette = background_palette;
+            }
+
+            if self.sprite_zero_hit && self.sprite_zero_rendered 
+            {
+                if self.mask.show_background() && self.mask.show_sprites()
+                {
+                    if !(self.mask.show_background_left() | self.mask.show_sprites_left())
+                    {
+                        if self.cycle >= 9 && self.cycle < 258
+                        {
+                            self.status.set_sprite_0(true);
+                        }
+                    }
+                    else 
+                    {
+                        if self.cycle >= 1 && self.cycle < 258
+                        {
+                            self.status.set_sprite_0(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        let colour = self.get_colour(final_palette, final_pixel);
         self.draw_pixel(self.cycle - 1, self.scanline, colour);
 
         self.cycle += 1;

@@ -14,10 +14,10 @@ use sdl2::render::TextureAccess;
 
 use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
-use std::collections::HashMap;
 
 pub mod bus;
 pub mod cartridge;
@@ -26,6 +26,8 @@ pub mod mapper;
 pub mod mapper_0;
 pub mod ppu;
 
+const width: i32 = 1024;
+const height: i32 = 960;
 // handle the annoying Rect i32
 macro_rules! rect(
     ($x:expr, $y:expr, $w:expr, $h:expr) => (
@@ -33,7 +35,7 @@ macro_rules! rect(
     )
 );
 
-fn update(nes: &mut cpu_6502::CPU6502) {
+fn step_instruction(nes: &mut cpu_6502::CPU6502) {
     while {
         nes.clock();
         !nes.complete()
@@ -59,13 +61,12 @@ fn main() -> Result<(), String> {
 
     let font_path: &Path = Path::new("./assets/monogram.ttf");
 
-    let mut debug_window = video_subsys
+    let debug_window = video_subsys
         .window("Debug Window", 1024, 960)
         .position_centered()
         .opengl()
         .build()
         .map_err(|e| e.to_string())?;
-        
     let main_window = video_subsys
         .window("NES Emulator", 1024, 960)
         .opengl()
@@ -127,7 +128,7 @@ fn main() -> Result<(), String> {
 
     let mut nes = cpu_6502::CPU6502::new();
     let cartridge =
-        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/ice climber.nes".to_string());
+        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
     let disassembly = nes.disassemble(0x0000, 0xFFFF);
@@ -138,9 +139,9 @@ fn main() -> Result<(), String> {
     let mut emulation_run = true;
     let mut time: f32 = 0.0;
 
-    let mut palette = 0;
     let mut debug = false;
     debug_canvas.window_mut().hide();
+    let mut clock_count = 0;
 
     'mainloop: loop {
         nes.bus.controller[0] = 0x00;
@@ -199,7 +200,7 @@ fn main() -> Result<(), String> {
                     keycode: Some(Keycode::C),
                     ..
                 } => {
-                    update(&mut nes);
+                    step_instruction(&mut nes);
                     count = count + 1;
                 }
                 Event::KeyDown {
@@ -207,6 +208,7 @@ fn main() -> Result<(), String> {
                     ..
                 } => {
                     nes.reset();
+                    clock_count = 0;
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::Space),
@@ -248,8 +250,43 @@ fn main() -> Result<(), String> {
                 time = time - now.elapsed().as_secs_f32();
             } else {
                 time = time + (1.0 / 60.0);
-                while nes.bus.ppu.frame_complete == false {
-                    nes.clock();
+                while nes.bus.ppu.frame_complete == false 
+                {
+                    clock_count += 1;
+                    nes.bus.clock();
+                    if nes.bus.dma_transfer == true
+                    {
+                        if nes.bus.dma_buffer == true
+                        {
+                            if clock_count % 2 == 1 {
+                                nes.bus.dma_buffer = false;
+                            }
+                        }
+                        else 
+                        {
+                            if clock_count % 2 == 0
+                            {
+                                let page = (nes.bus.dma_page as u16) << 8;
+                                let addr = nes.bus.dma_addr as u16;
+                                nes.bus.dma_data = nes.bus.cpu_read(page | addr, false);
+                            }
+                            else
+                            {
+                                nes.bus.ppu.oam_ram[nes.bus.dma_addr as usize] = nes.bus.dma_data;
+                                if nes.bus.dma_addr !=255{
+                                    nes.bus.dma_addr +=1;
+                                }else
+                                {
+                                    nes.bus.dma_addr = 0x00;
+                                    nes.bus.dma_transfer = false;
+                                    nes.bus.dma_buffer = true;
+                                }
+                            }
+                        }
+                    }else
+                    {
+                        nes.clock();
+                    }
                 }
                 nes.bus.ppu.frame_complete = false;
             }
@@ -257,10 +294,22 @@ fn main() -> Result<(), String> {
         main_canvas.clear();
         debug_canvas.clear();
 
-        if debug == true{
+        if debug == true {
             draw_debug(&mut debug_canvas, &mut nes, &font, &disassembly);
-            render_pattern_table(&mut debug_canvas, &mut nes, rect!(10, 694, 256, 256), &mut pattern_one, 0);
-            render_pattern_table(&mut debug_canvas, &mut nes, rect!(276, 694, 256, 256), &mut pattern_two, 1);
+            render_pattern_table(
+                &mut debug_canvas,
+                &mut nes,
+                rect!(10, 694, 256, 256),
+                &mut pattern_one,
+                0,
+            );
+            render_pattern_table(
+                &mut debug_canvas,
+                &mut nes,
+                rect!(276, 694, 256, 256),
+                &mut pattern_two,
+                1,
+            );
         }
         render_frame(
             &mut main_canvas,
@@ -268,14 +317,19 @@ fn main() -> Result<(), String> {
             rect!(0, 0, RENDER_WIDTH * 4, RENDER_HEIGHT * 4),
             &mut screen_texture,
         );
-
         main_canvas.present();
         debug_canvas.present();
     }
     Ok(())
 }
 
-fn draw_line(rect: sdl2::rect::Rect,text: &str,canvas: &mut WindowCanvas,font: &sdl2::ttf::Font,color: sdl2::pixels::Color,) {
+fn draw_line(
+    rect: sdl2::rect::Rect,
+    text: &str,
+    canvas: &mut WindowCanvas,
+    font: &sdl2::ttf::Font,
+    color: sdl2::pixels::Color,
+) {
     let texture_creator = canvas.texture_creator();
     let surface = font.render(&text).blended(color).map_err(|e| e.to_string());
     let texture = texture_creator
@@ -285,7 +339,12 @@ fn draw_line(rect: sdl2::rect::Rect,text: &str,canvas: &mut WindowCanvas,font: &
     canvas.copy(&texture.unwrap(), None, Some(rect)).unwrap();
 }
 
-fn draw_debug(debug_canvas: &mut WindowCanvas, nes: &mut cpu_6502::CPU6502, font: &sdl2::ttf::Font, disassembly: &HashMap<u32, String>){
+fn draw_debug(
+    debug_canvas: &mut WindowCanvas,
+    nes: &mut cpu_6502::CPU6502,
+    font: &sdl2::ttf::Font,
+    disassembly: &HashMap<u32, String>,
+) {
     let pc = nes.pc;
     {
         draw_line(
@@ -436,7 +495,7 @@ fn draw_debug(debug_canvas: &mut WindowCanvas, nes: &mut cpu_6502::CPU6502, font
     let mut i = 0;
 
     for x in 0..20 {
-        let val = (nes.pc as u32 + x as u32);
+        let val = nes.pc as u32 + x as u32;
         let end = disassembly.capacity() as u32;
         if val <= end {
             let iteration = disassembly.get(&(val));
@@ -453,6 +512,18 @@ fn draw_debug(debug_canvas: &mut WindowCanvas, nes: &mut cpu_6502::CPU6502, font
                 );
             }
         }
+    }
+
+    for x in 0..10 
+    {
+        let mut sprite_debug = "".to_owned();
+        sprite_debug.push_str(&(format!("{}: ", x)));
+        sprite_debug.push_str(&(format!("({}", nes.bus.ppu.oam_ram[x * 4 + 3])));
+        sprite_debug.push_str(&(format!(", {})", nes.bus.ppu.oam_ram[x * 4 + 0])));
+        sprite_debug.push_str(&(format!(" ID:{}", nes.bus.ppu.oam_ram[x * 4 + 1])));
+        sprite_debug.push_str(&(format!(" AT:{}", nes.bus.ppu.oam_ram[x * 4 + 2])));
+
+        draw_line(rect!(400, 170 + (x * 50), 300, 40), &sprite_debug, debug_canvas, &font, Color::WHITE)
     }
 }
 

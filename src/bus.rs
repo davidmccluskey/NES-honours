@@ -12,7 +12,14 @@ pub struct Bus {
   controller_state: [u8; 2],
   pub nmi_required: bool,
   
-  //cpu: CPU6502,         //Reference to CPU
+
+    //DMA handling 
+    odd_frame: bool,
+    pub dma_page: u8,
+    pub dma_addr: u8,
+    pub dma_data: u8,
+    pub dma_transfer: bool,
+    pub dma_buffer: bool,
 }
 
 impl Bus{
@@ -26,6 +33,13 @@ impl Bus{
       controller: [0; 2],
       controller_state: [0; 2],
       nmi_required: false,
+
+      odd_frame: false,
+      dma_page: 0x00,
+      dma_addr: 0x00,
+      dma_data: 0x00,
+      dma_transfer: false,
+      dma_buffer: true,
     }
   }
 
@@ -45,6 +59,12 @@ impl Bus{
         else if addr >= 0x2000 && addr <= 0x3FFF
         {
           self.ppu.cpu_write(addr & 0x0007, data);
+        }
+        else if addr == 0x4014
+        {
+          self.dma_page = *data;
+          self.dma_addr = 0;
+          self.dma_transfer = true;
         }
         else if addr >= 0x4016 && addr <= 0x4017{
           self.controller_state[0] = self.controller[0];
@@ -88,8 +108,7 @@ impl Bus{
     self.ppu.clock();
     self.ppu.clock();
     self.ppu.clock();
-
-
+    
     if self.ppu.nmi_enabled{
       self.ppu.nmi_enabled = false;
       self.nmi_required = true;

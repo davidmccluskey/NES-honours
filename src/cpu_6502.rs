@@ -23,7 +23,6 @@ pub struct CPU6502 {
     cycles: u8,          //Number of cycles
 
     lookup: Vec<Instruction>,   //lookup table
-
 }
 
 bitflags! {
@@ -77,6 +76,7 @@ impl CPU6502{
             addr_relative: 0x0000,
             opcode: 0x00,
             cycles: 0,
+
             lookup,
         }
     }
@@ -272,19 +272,16 @@ impl CPU6502{
 
     //Perform one clock cycle's worth of update
     pub fn clock(&mut self){
-        self.bus.clock();
         if self.bus.nmi_required == true{
             self.bus.nmi_required = false;
             self.nmi();
         }
         if self.cycles == 0 {
-            let log_pc = self.pc;
+            //let log_pc = self.pc;
             self.set_flag(Flags::U, true);
 
             self.opcode = self.read(self.pc);
-            // if self.pc == 32855 {
-            //     println!("yugh");
-            // }
+
             self.add_pc();
             self.cycles = self.lookup[self.opcode as usize].cycles;
 
@@ -445,302 +442,6 @@ impl CPU6502{
 
 }
 
-
-fn set_lookup() -> Vec<Instruction> {
-    let mut lookup = Vec::new();
-
-    lookup.push(Instruction::new("BRK".to_string(),"IMM".to_string(), 7, CPU6502::BRK, CPU6502::IMM));       //1
-    lookup.push(Instruction::new("ORA".to_string(),"IZX".to_string(), 6, CPU6502::ORA, CPU6502::IZX));       //2
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::ILL, CPU6502::IMP));       //3
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 8, CPU6502::ILL, CPU6502::IMP));       //4
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 3, CPU6502::NOP, CPU6502::IMP));       //5
-    lookup.push(Instruction::new("ORA".to_string(),"ZP0".to_string(), 3, CPU6502::ORA, CPU6502::ZP0));       //6
-    lookup.push(Instruction::new("ASL".to_string(),"ZP0".to_string(), 5, CPU6502::ASL, CPU6502::ZP0));       //7
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 5, CPU6502::ILL, CPU6502::IMP));       //8
-    lookup.push(Instruction::new("PHP".to_string(),"IMP".to_string(), 3, CPU6502::PHP, CPU6502::IMP));       //9
-    lookup.push(Instruction::new("ORA".to_string(),"IMM".to_string(), 2, CPU6502::ORA, CPU6502::IMM));       //10
-    lookup.push(Instruction::new("ASL".to_string(),"IMP".to_string(), 2, CPU6502::ASL, CPU6502::IMP));       //11
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::ILL, CPU6502::IMP));       //12
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 4, CPU6502::NOP, CPU6502::IMP));       //13
-    lookup.push(Instruction::new("ORA".to_string(),"ABS".to_string(), 4, CPU6502::ORA, CPU6502::ABS));       //14
-    lookup.push(Instruction::new("ASL".to_string(),"ABS".to_string(), 6, CPU6502::ASL, CPU6502::ABS));       //15
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 6, CPU6502::ILL, CPU6502::IMP));       //16
-
-
-    lookup.push(Instruction::new("BPL".to_string(), "REL".to_string(),2, CPU6502::BPL, CPU6502::REL));        //1
-    lookup.push(Instruction::new("ORA".to_string(), "IZY".to_string(),5, CPU6502::ORA, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("ORA".to_string(), "ZPX".to_string(),4, CPU6502::ORA, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("ASL".to_string(), "ZPX".to_string(),6, CPU6502::ASL, CPU6502::ZPX));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("CLC".to_string(), "IMP".to_string(),2, CPU6502::CLC, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("ORA".to_string(), "ABY".to_string(),4, CPU6502::ORA, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("ORA".to_string(), "ABX".to_string(),4, CPU6502::ORA, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("ASL".to_string(), "ABX".to_string(),7, CPU6502::ASL, CPU6502::ABX));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("JSR".to_string(), "ABS".to_string(),6, CPU6502::JSR, CPU6502::ABS));        //1
-    lookup.push(Instruction::new("AND".to_string(), "IZX".to_string(),6, CPU6502::AND, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("BIT".to_string(), "ZP0".to_string(),3, CPU6502::BIT, CPU6502::ZP0));        //5
-    lookup.push(Instruction::new("AND".to_string(), "ZP0".to_string(),3, CPU6502::AND, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("ROL".to_string(), "ZP0".to_string(),5, CPU6502::ROL, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("PLP".to_string(), "IMP".to_string(),4, CPU6502::PLP, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("AND".to_string(), "IMM".to_string(),2, CPU6502::AND, CPU6502::IMM));        //10
-    lookup.push(Instruction::new("ROL".to_string(), "IMP".to_string(),2, CPU6502::ROL, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("BIT".to_string(), "ABS".to_string(),4, CPU6502::BIT, CPU6502::ABS));        //13
-    lookup.push(Instruction::new("AND".to_string(), "ABS".to_string(),4, CPU6502::AND, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("ROL".to_string(), "ABS".to_string(),6, CPU6502::ROL, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BMI".to_string(), "REL".to_string(),2, CPU6502::BMI, CPU6502::REL));        //1
-    lookup.push(Instruction::new("AND".to_string(), "IZY".to_string(),5, CPU6502::AND, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("AND".to_string(), "ZPX".to_string(),4, CPU6502::AND, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("ROL".to_string(), "ZPX".to_string(),6, CPU6502::ROL, CPU6502::ZPX));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("SEC".to_string(), "IMP".to_string(),2, CPU6502::SEC, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("AND".to_string(), "ABY".to_string(),4, CPU6502::AND, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("AND".to_string(), "ABX".to_string(),4, CPU6502::AND, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("ROL".to_string(), "ABX".to_string(),7, CPU6502::ROL, CPU6502::ABX));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("RTI".to_string(), "IMP".to_string(),6, CPU6502::RTI, CPU6502::IMP));        //1
-    lookup.push(Instruction::new("EOR".to_string(), "IZX".to_string(),6, CPU6502::EOR, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),3, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("EOR".to_string(), "ZP0".to_string(),3, CPU6502::EOR, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("LSR".to_string(), "ZP0".to_string(),5, CPU6502::LSR, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("PHA".to_string(), "IMP".to_string(),3, CPU6502::PHA, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("EOR".to_string(), "IMM".to_string(),2, CPU6502::EOR, CPU6502::IMM));        //10
-    lookup.push(Instruction::new("LSR".to_string(), "IMP".to_string(),2, CPU6502::LSR, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("JMP".to_string(), "ABS".to_string(),3, CPU6502::JMP, CPU6502::ABS));        //13
-    lookup.push(Instruction::new("EOR".to_string(), "ABS".to_string(),4, CPU6502::EOR, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("LSR".to_string(), "ABS".to_string(),6, CPU6502::LSR, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BVC".to_string(), "REL".to_string(),2, CPU6502::BVC, CPU6502::REL));        //1
-    lookup.push(Instruction::new("EOR".to_string(), "IZY".to_string(),5, CPU6502::EOR, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("EOR".to_string(), "ZPX".to_string(),4, CPU6502::EOR, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("LSR".to_string(), "ZPX".to_string(),6, CPU6502::LSR, CPU6502::ZPX));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("CLI".to_string(), "IMP".to_string(),2, CPU6502::CLI, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("EOR".to_string(), "ABY".to_string(),4, CPU6502::EOR, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("EOR".to_string(), "ABX".to_string(),4, CPU6502::EOR, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("LSR".to_string(), "ABX".to_string(),7, CPU6502::LSR, CPU6502::ABX));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("RTS".to_string(), "IMP".to_string(),6, CPU6502::RTS, CPU6502::IMP));        //1
-    lookup.push(Instruction::new("ADC".to_string(), "IZX".to_string(),6, CPU6502::ADC, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),3, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("ADC".to_string(), "ZP0".to_string(),3, CPU6502::ADC, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("ROR".to_string(), "ZP0".to_string(),5, CPU6502::ROR, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("PLA".to_string(), "IMP".to_string(),4, CPU6502::PLA, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("ADC".to_string(), "IMM".to_string(),2, CPU6502::ADC, CPU6502::IMM));        //10
-    lookup.push(Instruction::new("ROR".to_string(), "IMP".to_string(),2, CPU6502::ROR, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("JMP".to_string(), "IND".to_string(),5, CPU6502::JMP, CPU6502::IND));        //13
-    lookup.push(Instruction::new("ADC".to_string(), "ABS".to_string(),4, CPU6502::ADC, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("ROR".to_string(), "ABS".to_string(),6, CPU6502::ROR, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BVS".to_string(), "REL".to_string(),2, CPU6502::BVS, CPU6502::REL));        //1
-    lookup.push(Instruction::new("ADC".to_string(), "IZY".to_string(),5, CPU6502::ADC, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("ADC".to_string(), "ZPX".to_string(),4, CPU6502::ADC, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("ROR".to_string(), "ZPX".to_string(),6, CPU6502::ROR, CPU6502::ZPX));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("SEI".to_string(), "IMP".to_string(),2, CPU6502::SEI, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("ADC".to_string(), "ABY".to_string(),4, CPU6502::ADC, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("ADC".to_string(), "ABX".to_string(),4, CPU6502::ADC, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("ROR".to_string(), "ABX".to_string(),7, CPU6502::ROR, CPU6502::ABX));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::NOP, CPU6502::IMP));        //1
-    lookup.push(Instruction::new("STA".to_string(),"IZX".to_string(), 6, CPU6502::STA, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::NOP, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 6, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("STY".to_string(),"ZP0".to_string(), 3, CPU6502::STY, CPU6502::ZP0));        //5
-    lookup.push(Instruction::new("STA".to_string(),"ZP0".to_string(), 3, CPU6502::STA, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("STX".to_string(),"ZP0".to_string(), 3, CPU6502::STX, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 3, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("DEY".to_string(),"IMP".to_string(), 2, CPU6502::DEY, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::NOP, CPU6502::IMP));        //10
-    lookup.push(Instruction::new("TXA".to_string(),"IMP".to_string(), 2, CPU6502::TXA, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("STY".to_string(),"ABS".to_string(), 4, CPU6502::STY, CPU6502::ABS));        //13
-    lookup.push(Instruction::new("STA".to_string(),"ABS".to_string(), 4, CPU6502::STA, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("STX".to_string(),"ABS".to_string(), 4, CPU6502::STX, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 4, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BCC".to_string(), "REL".to_string(),2, CPU6502::BCC, CPU6502::REL));        //1
-    lookup.push(Instruction::new("STA".to_string(), "IZY".to_string(),6, CPU6502::STA, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("STY".to_string(), "ZPX".to_string(),4, CPU6502::STY, CPU6502::ZPX));        //5
-    lookup.push(Instruction::new("STA".to_string(), "ZPX".to_string(),4, CPU6502::STA, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("STX".to_string(), "ZPY".to_string(),4, CPU6502::STX, CPU6502::ZPY));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("TYA".to_string(), "IMP".to_string(),2, CPU6502::TYA, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("STA".to_string(), "ABY".to_string(),5, CPU6502::STA, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("TXS".to_string(), "IMP".to_string(),2, CPU6502::TXS, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("STA".to_string(), "ABX".to_string(),5, CPU6502::STA, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("LDY".to_string(), "IMM".to_string(),2, CPU6502::LDY, CPU6502::IMM));        //1
-    lookup.push(Instruction::new("LDA".to_string(), "IZX".to_string(),6, CPU6502::LDA, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("LDX".to_string(), "IMM".to_string(),2, CPU6502::LDX, CPU6502::IMM));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("LDY".to_string(), "ZP0".to_string(),3, CPU6502::LDY, CPU6502::ZP0));        //5
-    lookup.push(Instruction::new("LDA".to_string(), "ZP0".to_string(),3, CPU6502::LDA, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("LDX".to_string(), "ZP0".to_string(),3, CPU6502::LDX, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),3, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("TAY".to_string(), "IMP".to_string(),2, CPU6502::TAY, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("LDA".to_string(), "IMM".to_string(),2, CPU6502::LDA, CPU6502::IMM));        //10
-    lookup.push(Instruction::new("TAX".to_string(), "IMP".to_string(),2, CPU6502::TAX, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("LDY".to_string(), "ABS".to_string(),4, CPU6502::LDY, CPU6502::ABS));        //13
-    lookup.push(Instruction::new("LDA".to_string(), "ABS".to_string(),4, CPU6502::LDA, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("LDX".to_string(), "ABS".to_string(),4, CPU6502::LDX, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BCS".to_string(), "REL".to_string(),2, CPU6502::BCS, CPU6502::REL));        //1
-    lookup.push(Instruction::new("LDA".to_string(), "IZY".to_string(),5, CPU6502::LDA, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("LDY".to_string(), "ZPX".to_string(),4, CPU6502::LDY, CPU6502::ZPX));        //5
-    lookup.push(Instruction::new("LDA".to_string(), "ZPX".to_string(),4, CPU6502::LDA, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("LDX".to_string(), "ZPY".to_string(),4, CPU6502::LDX, CPU6502::ZPY));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("CLV".to_string(), "IMP".to_string(),2, CPU6502::CLV, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("LDA".to_string(), "ABY".to_string(),4, CPU6502::LDA, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("TSX".to_string(), "IMP".to_string(),2, CPU6502::TSX, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("LDY".to_string(), "ABX".to_string(),4, CPU6502::LDY, CPU6502::ABX));        //13
-    lookup.push(Instruction::new("LDA".to_string(), "ABX".to_string(),4, CPU6502::LDA, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("LDX".to_string(), "ABY".to_string(),4, CPU6502::LDX, CPU6502::ABY));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("CPY".to_string(), "IMM".to_string(),2, CPU6502::CPY, CPU6502::IMM));        //1
-    lookup.push(Instruction::new("CMP".to_string(), "IZX".to_string(),6, CPU6502::CMP, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("CPY".to_string(), "ZP0".to_string(),3, CPU6502::CPY, CPU6502::ZP0));        //5
-    lookup.push(Instruction::new("CMP".to_string(), "ZP0".to_string(),3, CPU6502::CMP, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("DEC".to_string(), "ZP0".to_string(),5, CPU6502::DEC, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("INY".to_string(), "IMP".to_string(),2, CPU6502::INY, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("CMP".to_string(), "IMM".to_string(),2, CPU6502::CMP, CPU6502::IMM));        //10
-    lookup.push(Instruction::new("DEX".to_string(), "IMP".to_string(),2, CPU6502::DEX, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("CPY".to_string(), "ABS".to_string(),4, CPU6502::CPY, CPU6502::ABS));        //13
-    lookup.push(Instruction::new("CMP".to_string(), "ABS".to_string(),4, CPU6502::CMP, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("DEC".to_string(), "ABS".to_string(),6, CPU6502::DEC, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BNE".to_string(), "REL".to_string(),2, CPU6502::BNE, CPU6502::REL));        //1
-    lookup.push(Instruction::new("CMP".to_string(), "IZY".to_string(),5, CPU6502::CMP, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("CMP".to_string(), "ZPX".to_string(),4, CPU6502::CMP, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("DEC".to_string(), "ZPX".to_string(),6, CPU6502::DEC, CPU6502::ZPX));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("CLD".to_string(), "IMP".to_string(),2, CPU6502::CLD, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("CMP".to_string(), "ABY".to_string(),4, CPU6502::CMP, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("NOP".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("CMP".to_string(), "ABX".to_string(),4, CPU6502::CMP, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("DEC".to_string(), "ABX".to_string(),7, CPU6502::DEC, CPU6502::ABX));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("CPX".to_string(), "IMM".to_string(),2, CPU6502::CPX, CPU6502::IMM));        //1
-    lookup.push(Instruction::new("SBC".to_string(), "IZX".to_string(),6, CPU6502::SBC, CPU6502::IZX));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("CPX".to_string(), "ZP0".to_string(),3, CPU6502::CPX, CPU6502::ZP0));        //5
-    lookup.push(Instruction::new("SBC".to_string(), "ZP0".to_string(),3, CPU6502::SBC, CPU6502::ZP0));        //6
-    lookup.push(Instruction::new("INC".to_string(), "ZP0".to_string(),5, CPU6502::INC, CPU6502::ZP0));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("INX".to_string(), "IMP".to_string(),2, CPU6502::INX, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("SBC".to_string(), "IMM".to_string(),2, CPU6502::SBC, CPU6502::IMM));        //10
-    lookup.push(Instruction::new("NOP".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::SBC, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("CPX".to_string(), "ABS".to_string(),4, CPU6502::CPX, CPU6502::ABS));        //13
-    lookup.push(Instruction::new("SBC".to_string(), "ABS".to_string(),4, CPU6502::SBC, CPU6502::ABS));        //14
-    lookup.push(Instruction::new("INC".to_string(), "ABS".to_string(),6, CPU6502::INC, CPU6502::ABS));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    lookup.push(Instruction::new("BEQ".to_string(), "REL".to_string(),2, CPU6502::BEQ, CPU6502::REL));        //1
-    lookup.push(Instruction::new("SBC".to_string(), "IZY".to_string(),5, CPU6502::SBC, CPU6502::IZY));        //2
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
-    lookup.push(Instruction::new("SBC".to_string(), "ZPX".to_string(),4, CPU6502::SBC, CPU6502::ZPX));        //6
-    lookup.push(Instruction::new("INC".to_string(), "ZPX".to_string(),6, CPU6502::INC, CPU6502::ZPX));        //7
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
-    lookup.push(Instruction::new("SED".to_string(), "IMP".to_string(),2, CPU6502::SED, CPU6502::IMP));        //9
-    lookup.push(Instruction::new("SBC".to_string(), "ABY".to_string(),4, CPU6502::SBC, CPU6502::ABY));        //10
-    lookup.push(Instruction::new("NOP".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
-    lookup.push(Instruction::new("SBC".to_string(), "ABX".to_string(),4, CPU6502::SBC, CPU6502::ABX));        //14
-    lookup.push(Instruction::new("INC".to_string(), "ABX".to_string(),7, CPU6502::INC, CPU6502::ABX));        //15
-    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
-
-
-    return lookup;
-
-}
-
 #[allow(non_snake_case)]
 impl CPU6502 {
     //Addressing modes
@@ -839,10 +540,10 @@ impl CPU6502 {
 
         if ptr_low == 0x00FF 
         {
-            let addr = (ptr & 0xFF00);
+            let addr = ptr & 0xFF00;
             let low = (self.read(addr) as u16) << 8;
             let high = self.read(ptr) as u16;
-            self.addr_absolute = (low | high); //OVERFLOW
+            self.addr_absolute = low | high; //OVERFLOW
         }
         else 
         {
@@ -1169,7 +870,7 @@ impl CPU6502{
 
         self.set_flag(Flags::C, self.a >= self.fetched);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
-        let tf = (tmp & 0x0080);
+        let tf = tmp & 0x0080;
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
         return 0;
     }
@@ -1410,7 +1111,6 @@ impl CPU6502{
         self.fetch();
         let shift = (self.fetched as u16) << 1;
         let tmp = shift | (self.get_flag(Flags::C)) as u16;
-        let t = (tmp & 0xFF00);
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
@@ -1565,4 +1265,285 @@ impl CPU6502{
     fn ILL(&mut self) -> u8{
         return 0;
     }
+}
+
+
+
+fn set_lookup() -> Vec<Instruction> {
+    let mut lookup = Vec::new();
+
+    lookup.push(Instruction::new("BRK".to_string(),"IMM".to_string(), 7, CPU6502::BRK, CPU6502::IMM));       //1
+    lookup.push(Instruction::new("ORA".to_string(),"IZX".to_string(), 6, CPU6502::ORA, CPU6502::IZX));       //2
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::ILL, CPU6502::IMP));       //3
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 8, CPU6502::ILL, CPU6502::IMP));       //4
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 3, CPU6502::NOP, CPU6502::IMP));       //5
+    lookup.push(Instruction::new("ORA".to_string(),"ZP0".to_string(), 3, CPU6502::ORA, CPU6502::ZP0));       //6
+    lookup.push(Instruction::new("ASL".to_string(),"ZP0".to_string(), 5, CPU6502::ASL, CPU6502::ZP0));       //7
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 5, CPU6502::ILL, CPU6502::IMP));       //8
+    lookup.push(Instruction::new("PHP".to_string(),"IMP".to_string(), 3, CPU6502::PHP, CPU6502::IMP));       //9
+    lookup.push(Instruction::new("ORA".to_string(),"IMM".to_string(), 2, CPU6502::ORA, CPU6502::IMM));       //10
+    lookup.push(Instruction::new("ASL".to_string(),"IMP".to_string(), 2, CPU6502::ASL, CPU6502::IMP));       //11
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::ILL, CPU6502::IMP));       //12
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 4, CPU6502::NOP, CPU6502::IMP));       //13
+    lookup.push(Instruction::new("ORA".to_string(),"ABS".to_string(), 4, CPU6502::ORA, CPU6502::ABS));       //14
+    lookup.push(Instruction::new("ASL".to_string(),"ABS".to_string(), 6, CPU6502::ASL, CPU6502::ABS));       //15
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 6, CPU6502::ILL, CPU6502::IMP));       //16
+
+    lookup.push(Instruction::new("BPL".to_string(), "REL".to_string(),2, CPU6502::BPL, CPU6502::REL));        //1
+    lookup.push(Instruction::new("ORA".to_string(), "IZY".to_string(),5, CPU6502::ORA, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("ORA".to_string(), "ZPX".to_string(),4, CPU6502::ORA, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("ASL".to_string(), "ZPX".to_string(),6, CPU6502::ASL, CPU6502::ZPX));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("CLC".to_string(), "IMP".to_string(),2, CPU6502::CLC, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("ORA".to_string(), "ABY".to_string(),4, CPU6502::ORA, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("ORA".to_string(), "ABX".to_string(),4, CPU6502::ORA, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("ASL".to_string(), "ABX".to_string(),7, CPU6502::ASL, CPU6502::ABX));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("JSR".to_string(), "ABS".to_string(),6, CPU6502::JSR, CPU6502::ABS));        //1
+    lookup.push(Instruction::new("AND".to_string(), "IZX".to_string(),6, CPU6502::AND, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("BIT".to_string(), "ZP0".to_string(),3, CPU6502::BIT, CPU6502::ZP0));        //5
+    lookup.push(Instruction::new("AND".to_string(), "ZP0".to_string(),3, CPU6502::AND, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("ROL".to_string(), "ZP0".to_string(),5, CPU6502::ROL, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("PLP".to_string(), "IMP".to_string(),4, CPU6502::PLP, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("AND".to_string(), "IMM".to_string(),2, CPU6502::AND, CPU6502::IMM));        //10
+    lookup.push(Instruction::new("ROL".to_string(), "IMP".to_string(),2, CPU6502::ROL, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("BIT".to_string(), "ABS".to_string(),4, CPU6502::BIT, CPU6502::ABS));        //13
+    lookup.push(Instruction::new("AND".to_string(), "ABS".to_string(),4, CPU6502::AND, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("ROL".to_string(), "ABS".to_string(),6, CPU6502::ROL, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BMI".to_string(), "REL".to_string(),2, CPU6502::BMI, CPU6502::REL));        //1
+    lookup.push(Instruction::new("AND".to_string(), "IZY".to_string(),5, CPU6502::AND, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("AND".to_string(), "ZPX".to_string(),4, CPU6502::AND, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("ROL".to_string(), "ZPX".to_string(),6, CPU6502::ROL, CPU6502::ZPX));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("SEC".to_string(), "IMP".to_string(),2, CPU6502::SEC, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("AND".to_string(), "ABY".to_string(),4, CPU6502::AND, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("AND".to_string(), "ABX".to_string(),4, CPU6502::AND, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("ROL".to_string(), "ABX".to_string(),7, CPU6502::ROL, CPU6502::ABX));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("RTI".to_string(), "IMP".to_string(),6, CPU6502::RTI, CPU6502::IMP));        //1
+    lookup.push(Instruction::new("EOR".to_string(), "IZX".to_string(),6, CPU6502::EOR, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),3, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("EOR".to_string(), "ZP0".to_string(),3, CPU6502::EOR, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("LSR".to_string(), "ZP0".to_string(),5, CPU6502::LSR, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("PHA".to_string(), "IMP".to_string(),3, CPU6502::PHA, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("EOR".to_string(), "IMM".to_string(),2, CPU6502::EOR, CPU6502::IMM));        //10
+    lookup.push(Instruction::new("LSR".to_string(), "IMP".to_string(),2, CPU6502::LSR, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("JMP".to_string(), "ABS".to_string(),3, CPU6502::JMP, CPU6502::ABS));        //13
+    lookup.push(Instruction::new("EOR".to_string(), "ABS".to_string(),4, CPU6502::EOR, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("LSR".to_string(), "ABS".to_string(),6, CPU6502::LSR, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BVC".to_string(), "REL".to_string(),2, CPU6502::BVC, CPU6502::REL));        //1
+    lookup.push(Instruction::new("EOR".to_string(), "IZY".to_string(),5, CPU6502::EOR, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("EOR".to_string(), "ZPX".to_string(),4, CPU6502::EOR, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("LSR".to_string(), "ZPX".to_string(),6, CPU6502::LSR, CPU6502::ZPX));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("CLI".to_string(), "IMP".to_string(),2, CPU6502::CLI, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("EOR".to_string(), "ABY".to_string(),4, CPU6502::EOR, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("EOR".to_string(), "ABX".to_string(),4, CPU6502::EOR, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("LSR".to_string(), "ABX".to_string(),7, CPU6502::LSR, CPU6502::ABX));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("RTS".to_string(), "IMP".to_string(),6, CPU6502::RTS, CPU6502::IMP));        //1
+    lookup.push(Instruction::new("ADC".to_string(), "IZX".to_string(),6, CPU6502::ADC, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),3, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("ADC".to_string(), "ZP0".to_string(),3, CPU6502::ADC, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("ROR".to_string(), "ZP0".to_string(),5, CPU6502::ROR, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("PLA".to_string(), "IMP".to_string(),4, CPU6502::PLA, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("ADC".to_string(), "IMM".to_string(),2, CPU6502::ADC, CPU6502::IMM));        //10
+    lookup.push(Instruction::new("ROR".to_string(), "IMP".to_string(),2, CPU6502::ROR, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("JMP".to_string(), "IND".to_string(),5, CPU6502::JMP, CPU6502::IND));        //13
+    lookup.push(Instruction::new("ADC".to_string(), "ABS".to_string(),4, CPU6502::ADC, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("ROR".to_string(), "ABS".to_string(),6, CPU6502::ROR, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BVS".to_string(), "REL".to_string(),2, CPU6502::BVS, CPU6502::REL));        //1
+    lookup.push(Instruction::new("ADC".to_string(), "IZY".to_string(),5, CPU6502::ADC, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("ADC".to_string(), "ZPX".to_string(),4, CPU6502::ADC, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("ROR".to_string(), "ZPX".to_string(),6, CPU6502::ROR, CPU6502::ZPX));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("SEI".to_string(), "IMP".to_string(),2, CPU6502::SEI, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("ADC".to_string(), "ABY".to_string(),4, CPU6502::ADC, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("ADC".to_string(), "ABX".to_string(),4, CPU6502::ADC, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("ROR".to_string(), "ABX".to_string(),7, CPU6502::ROR, CPU6502::ABX));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::NOP, CPU6502::IMP));        //1
+    lookup.push(Instruction::new("STA".to_string(),"IZX".to_string(), 6, CPU6502::STA, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::NOP, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 6, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("STY".to_string(),"ZP0".to_string(), 3, CPU6502::STY, CPU6502::ZP0));        //5
+    lookup.push(Instruction::new("STA".to_string(),"ZP0".to_string(), 3, CPU6502::STA, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("STX".to_string(),"ZP0".to_string(), 3, CPU6502::STX, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 3, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("DEY".to_string(),"IMP".to_string(), 2, CPU6502::DEY, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::NOP, CPU6502::IMP));        //10
+    lookup.push(Instruction::new("TXA".to_string(),"IMP".to_string(), 2, CPU6502::TXA, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 2, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("STY".to_string(),"ABS".to_string(), 4, CPU6502::STY, CPU6502::ABS));        //13
+    lookup.push(Instruction::new("STA".to_string(),"ABS".to_string(), 4, CPU6502::STA, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("STX".to_string(),"ABS".to_string(), 4, CPU6502::STX, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(),"IMP".to_string(), 4, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BCC".to_string(), "REL".to_string(),2, CPU6502::BCC, CPU6502::REL));        //1
+    lookup.push(Instruction::new("STA".to_string(), "IZY".to_string(),6, CPU6502::STA, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("STY".to_string(), "ZPX".to_string(),4, CPU6502::STY, CPU6502::ZPX));        //5
+    lookup.push(Instruction::new("STA".to_string(), "ZPX".to_string(),4, CPU6502::STA, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("STX".to_string(), "ZPY".to_string(),4, CPU6502::STX, CPU6502::ZPY));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("TYA".to_string(), "IMP".to_string(),2, CPU6502::TYA, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("STA".to_string(), "ABY".to_string(),5, CPU6502::STA, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("TXS".to_string(), "IMP".to_string(),2, CPU6502::TXS, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("STA".to_string(), "ABX".to_string(),5, CPU6502::STA, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("LDY".to_string(), "IMM".to_string(),2, CPU6502::LDY, CPU6502::IMM));        //1
+    lookup.push(Instruction::new("LDA".to_string(), "IZX".to_string(),6, CPU6502::LDA, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("LDX".to_string(), "IMM".to_string(),2, CPU6502::LDX, CPU6502::IMM));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("LDY".to_string(), "ZP0".to_string(),3, CPU6502::LDY, CPU6502::ZP0));        //5
+    lookup.push(Instruction::new("LDA".to_string(), "ZP0".to_string(),3, CPU6502::LDA, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("LDX".to_string(), "ZP0".to_string(),3, CPU6502::LDX, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),3, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("TAY".to_string(), "IMP".to_string(),2, CPU6502::TAY, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("LDA".to_string(), "IMM".to_string(),2, CPU6502::LDA, CPU6502::IMM));        //10
+    lookup.push(Instruction::new("TAX".to_string(), "IMP".to_string(),2, CPU6502::TAX, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("LDY".to_string(), "ABS".to_string(),4, CPU6502::LDY, CPU6502::ABS));        //13
+    lookup.push(Instruction::new("LDA".to_string(), "ABS".to_string(),4, CPU6502::LDA, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("LDX".to_string(), "ABS".to_string(),4, CPU6502::LDX, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BCS".to_string(), "REL".to_string(),2, CPU6502::BCS, CPU6502::REL));        //1
+    lookup.push(Instruction::new("LDA".to_string(), "IZY".to_string(),5, CPU6502::LDA, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("LDY".to_string(), "ZPX".to_string(),4, CPU6502::LDY, CPU6502::ZPX));        //5
+    lookup.push(Instruction::new("LDA".to_string(), "ZPX".to_string(),4, CPU6502::LDA, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("LDX".to_string(), "ZPY".to_string(),4, CPU6502::LDX, CPU6502::ZPY));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("CLV".to_string(), "IMP".to_string(),2, CPU6502::CLV, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("LDA".to_string(), "ABY".to_string(),4, CPU6502::LDA, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("TSX".to_string(), "IMP".to_string(),2, CPU6502::TSX, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("LDY".to_string(), "ABX".to_string(),4, CPU6502::LDY, CPU6502::ABX));        //13
+    lookup.push(Instruction::new("LDA".to_string(), "ABX".to_string(),4, CPU6502::LDA, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("LDX".to_string(), "ABY".to_string(),4, CPU6502::LDX, CPU6502::ABY));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("CPY".to_string(), "IMM".to_string(),2, CPU6502::CPY, CPU6502::IMM));        //1
+    lookup.push(Instruction::new("CMP".to_string(), "IZX".to_string(),6, CPU6502::CMP, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("CPY".to_string(), "ZP0".to_string(),3, CPU6502::CPY, CPU6502::ZP0));        //5
+    lookup.push(Instruction::new("CMP".to_string(), "ZP0".to_string(),3, CPU6502::CMP, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("DEC".to_string(), "ZP0".to_string(),5, CPU6502::DEC, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("INY".to_string(), "IMP".to_string(),2, CPU6502::INY, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("CMP".to_string(), "IMM".to_string(),2, CPU6502::CMP, CPU6502::IMM));        //10
+    lookup.push(Instruction::new("DEX".to_string(), "IMP".to_string(),2, CPU6502::DEX, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("CPY".to_string(), "ABS".to_string(),4, CPU6502::CPY, CPU6502::ABS));        //13
+    lookup.push(Instruction::new("CMP".to_string(), "ABS".to_string(),4, CPU6502::CMP, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("DEC".to_string(), "ABS".to_string(),6, CPU6502::DEC, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BNE".to_string(), "REL".to_string(),2, CPU6502::BNE, CPU6502::REL));        //1
+    lookup.push(Instruction::new("CMP".to_string(), "IZY".to_string(),5, CPU6502::CMP, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("CMP".to_string(), "ZPX".to_string(),4, CPU6502::CMP, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("DEC".to_string(), "ZPX".to_string(),6, CPU6502::DEC, CPU6502::ZPX));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("CLD".to_string(), "IMP".to_string(),2, CPU6502::CLD, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("CMP".to_string(), "ABY".to_string(),4, CPU6502::CMP, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("NOP".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("CMP".to_string(), "ABX".to_string(),4, CPU6502::CMP, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("DEC".to_string(), "ABX".to_string(),7, CPU6502::DEC, CPU6502::ABX));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("CPX".to_string(), "IMM".to_string(),2, CPU6502::CPX, CPU6502::IMM));        //1
+    lookup.push(Instruction::new("SBC".to_string(), "IZX".to_string(),6, CPU6502::SBC, CPU6502::IZX));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("CPX".to_string(), "ZP0".to_string(),3, CPU6502::CPX, CPU6502::ZP0));        //5
+    lookup.push(Instruction::new("SBC".to_string(), "ZP0".to_string(),3, CPU6502::SBC, CPU6502::ZP0));        //6
+    lookup.push(Instruction::new("INC".to_string(), "ZP0".to_string(),5, CPU6502::INC, CPU6502::ZP0));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),5, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("INX".to_string(), "IMP".to_string(),2, CPU6502::INX, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("SBC".to_string(), "IMM".to_string(),2, CPU6502::SBC, CPU6502::IMM));        //10
+    lookup.push(Instruction::new("NOP".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::SBC, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("CPX".to_string(), "ABS".to_string(),4, CPU6502::CPX, CPU6502::ABS));        //13
+    lookup.push(Instruction::new("SBC".to_string(), "ABS".to_string(),4, CPU6502::SBC, CPU6502::ABS));        //14
+    lookup.push(Instruction::new("INC".to_string(), "ABS".to_string(),6, CPU6502::INC, CPU6502::ABS));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //16
+
+    lookup.push(Instruction::new("BEQ".to_string(), "REL".to_string(),2, CPU6502::BEQ, CPU6502::REL));        //1
+    lookup.push(Instruction::new("SBC".to_string(), "IZY".to_string(),5, CPU6502::SBC, CPU6502::IZY));        //2
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),2, CPU6502::ILL, CPU6502::IMP));        //3
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),8, CPU6502::ILL, CPU6502::IMP));        //4
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //5
+    lookup.push(Instruction::new("SBC".to_string(), "ZPX".to_string(),4, CPU6502::SBC, CPU6502::ZPX));        //6
+    lookup.push(Instruction::new("INC".to_string(), "ZPX".to_string(),6, CPU6502::INC, CPU6502::ZPX));        //7
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),6, CPU6502::ILL, CPU6502::IMP));        //8
+    lookup.push(Instruction::new("SED".to_string(), "IMP".to_string(),2, CPU6502::SED, CPU6502::IMP));        //9
+    lookup.push(Instruction::new("SBC".to_string(), "ABY".to_string(),4, CPU6502::SBC, CPU6502::ABY));        //10
+    lookup.push(Instruction::new("NOP".to_string(), "IMP".to_string(),2, CPU6502::NOP, CPU6502::IMP));        //11
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //12
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),4, CPU6502::NOP, CPU6502::IMP));        //13
+    lookup.push(Instruction::new("SBC".to_string(), "ABX".to_string(),4, CPU6502::SBC, CPU6502::ABX));        //14
+    lookup.push(Instruction::new("INC".to_string(), "ABX".to_string(),7, CPU6502::INC, CPU6502::ABX));        //15
+    lookup.push(Instruction::new("???".to_string(), "IMP".to_string(),7, CPU6502::ILL, CPU6502::IMP));        //16
+
+    return lookup;
+
 }
