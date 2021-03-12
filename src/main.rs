@@ -125,7 +125,7 @@ fn main() -> Result<(), String> {
 
     let mut nes = cpu_6502::CPU6502::new();
     let cartridge =
-        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/ice climber.nes".to_string());
+        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
     let disassembly = nes.disassemble(0x0000, 0xFFFF);
@@ -140,9 +140,27 @@ fn main() -> Result<(), String> {
     debug_canvas.window_mut().hide();
     let mut clock_count = 0;
 
+    let mut a_pressed = false;
+    let mut b_pressed = false;
+    let mut start_pressed = false;
+    let mut select_pressed = false; 
+    let mut up_pressed = false;
+    let mut down_pressed = false;
+    let mut right_pressed = false;
+    let mut left_pressed = false;
+
     let mut now = Instant::now();
     'mainloop: loop {
         nes.bus.controller[0] = 0x00;
+
+        if b_pressed {nes.bus.controller[0] |= 0x80;}
+        if a_pressed {nes.bus.controller[0] |= 0x40;}
+        if start_pressed {nes.bus.controller[0] |= 0x20;}
+        if select_pressed {nes.bus.controller[0] |= 0x10;}
+        if up_pressed{nes.bus.controller[0] |= 0x08;}
+        if down_pressed{nes.bus.controller[0] |= 0x04;}
+        if right_pressed{nes.bus.controller[0] |= 0x01;}
+        if left_pressed{nes.bus.controller[0] |= 0x02;}
         for event in sdl_context.event_pump()?.poll_iter() {
             //https://sunjay.dev/learn-game-dev/smooth-movement.html
             match event {
@@ -150,105 +168,110 @@ fn main() -> Result<(), String> {
                     keycode: Some(Keycode::X), //B
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x80;
+                    b_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::X), //B
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x80;
+                    b_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Z), //A
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x40;
+                    a_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::Z), //A
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x40;
+                    a_pressed = false;
                 }
 
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::A), //Start
                     ..
-                } => {
-                    nes.bus.controller[0] |= 0x20;
+                } => 
+                {
+                    start_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::A), //Start
                     ..
-                } => {
-                    nes.bus.controller[0] |= 0x20;
+                } => 
+                {
+                    start_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::S), //Select
                     ..
-                } => {
-                    nes.bus.controller[0] |= 0x10;
+                } => 
+                {
+                    select_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::S), //Select
                     ..
-                } => {
-                    nes.bus.controller[0] |= 0x10;
+                } => 
+                {
+                    select_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Up), //D-Pad up
                     ..
-                } => {
-                    nes.bus.controller[0] |= 0x08;
+                } => 
+                {
+                    up_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::Up), //D-Pad up
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x08;
+                    up_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Down), //D-Pad down
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x04;
+                    down_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::Down), //D-Pad down
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x04;
+                    down_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Left), //D-pad Left
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x02;
+                    left_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::Left), //D-pad Left
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x02;
+                    left_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Right), //D-Pad Right
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x01;
+                    right_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::Right), //D-pad Right
                     ..
                 } => {
-                    nes.bus.controller[0] |= 0x02;
+                    right_pressed = false;
                 }
                 /////////////////////////////////
 
