@@ -14,7 +14,6 @@ pub struct Bus {
   
 
     //DMA handling 
-    odd_frame: bool,
     pub dma_page: u8,
     pub dma_addr: u8,
     pub dma_data: u8,
@@ -34,7 +33,6 @@ impl Bus{
       controller_state: [0; 2],
       nmi_required: false,
 
-      odd_frame: false,
       dma_page: 0x00,
       dma_addr: 0x00,
       dma_data: 0x00,

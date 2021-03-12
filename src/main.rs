@@ -26,8 +26,6 @@ pub mod mapper;
 pub mod mapper_0;
 pub mod ppu;
 
-const width: i32 = 1024;
-const height: i32 = 960;
 // handle the annoying Rect i32
 macro_rules! rect(
     ($x:expr, $y:expr, $w:expr, $h:expr) => (
@@ -54,7 +52,6 @@ fn update_full_frame(nes: &mut cpu_6502::CPU6502) {
 }
 
 fn main() -> Result<(), String> {
-    let now = Instant::now();
     let sdl_context = sdl2::init()?;
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
@@ -128,7 +125,7 @@ fn main() -> Result<(), String> {
 
     let mut nes = cpu_6502::CPU6502::new();
     let cartridge =
-        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
+        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/ice climber.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
     let disassembly = nes.disassemble(0x0000, 0xFFFF);
@@ -143,9 +140,11 @@ fn main() -> Result<(), String> {
     debug_canvas.window_mut().hide();
     let mut clock_count = 0;
 
+    let mut now = Instant::now();
     'mainloop: loop {
         nes.bus.controller[0] = 0x00;
         for event in sdl_context.event_pump()?.poll_iter() {
+            //https://sunjay.dev/learn-game-dev/smooth-movement.html
             match event {
                 Event::KeyDown {
                     keycode: Some(Keycode::X), //B
@@ -153,48 +152,108 @@ fn main() -> Result<(), String> {
                 } => {
                     nes.bus.controller[0] |= 0x80;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::X), //B
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x80;
+                }
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Z), //A
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x40;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Z), //A
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x40;
+                }
+
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::A), //Start
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x20;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::A), //Start
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x20;
+                }
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::S), //Select
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x10;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::S), //Select
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x10;
+                }
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Up), //D-Pad up
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x08;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Up), //D-Pad up
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x08;
+                }
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Down), //D-Pad down
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x04;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Down), //D-Pad down
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x04;
+                }
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Left), //D-pad Left
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x02;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Left), //D-pad Left
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x02;
+                }
+                /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Right), //D-Pad Right
                     ..
                 } => {
                     nes.bus.controller[0] |= 0x01;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Right), //D-pad Right
+                    ..
+                } => {
+                    nes.bus.controller[0] |= 0x02;
+                }
+                /////////////////////////////////
+
+
+
 
                 Event::KeyDown {
                     keycode: Some(Keycode::C),
@@ -231,7 +290,6 @@ fn main() -> Result<(), String> {
                     debug = !debug;
 
                     if debug == true {
-                        //debug_window.show();
                         debug_canvas.window_mut().show();
                     } else {
                         debug_canvas.window_mut().hide();
@@ -245,11 +303,15 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
+
         if emulation_run == true {
-            if time > 0.0 {
-                time = time - now.elapsed().as_secs_f32();
-            } else {
+            if time < 0.0 {
+                time = time - (now.elapsed().as_secs_f32());
+            } 
+            else 
+            {
                 time = time + (1.0 / 60.0);
+                now = Instant::now();
                 while nes.bus.ppu.frame_complete == false 
                 {
                     clock_count += 1;
@@ -289,36 +351,37 @@ fn main() -> Result<(), String> {
                     }
                 }
                 nes.bus.ppu.frame_complete = false;
+                main_canvas.clear();
+                debug_canvas.clear();
+        
+                if debug == true {
+                    draw_debug(&mut debug_canvas, &mut nes, &font, &disassembly);
+                    render_pattern_table(
+                        &mut debug_canvas,
+                        &mut nes,
+                        rect!(10, 694, 256, 256),
+                        &mut pattern_one,
+                        0,
+                    );
+                    render_pattern_table(
+                        &mut debug_canvas,
+                        &mut nes,
+                        rect!(276, 694, 256, 256),
+                        &mut pattern_two,
+                        1,
+                    );
+                }
+                render_frame(
+                    &mut main_canvas,
+                    &mut nes,
+                    rect!(0, 0, RENDER_WIDTH * 4, RENDER_HEIGHT * 4),
+                    &mut screen_texture,
+                );
+                main_canvas.present();
+                debug_canvas.present();
             }
         }
-        main_canvas.clear();
-        debug_canvas.clear();
 
-        if debug == true {
-            draw_debug(&mut debug_canvas, &mut nes, &font, &disassembly);
-            render_pattern_table(
-                &mut debug_canvas,
-                &mut nes,
-                rect!(10, 694, 256, 256),
-                &mut pattern_one,
-                0,
-            );
-            render_pattern_table(
-                &mut debug_canvas,
-                &mut nes,
-                rect!(276, 694, 256, 256),
-                &mut pattern_two,
-                1,
-            );
-        }
-        render_frame(
-            &mut main_canvas,
-            &mut nes,
-            rect!(0, 0, RENDER_WIDTH * 4, RENDER_HEIGHT * 4),
-            &mut screen_texture,
-        );
-        main_canvas.present();
-        debug_canvas.present();
     }
     Ok(())
 }

@@ -481,7 +481,6 @@ impl PPU {
                 self.v_address_register.set_coarse_x(0);
                 let nx = self.v_address_register.nametable_x();
                 self.v_address_register.0 ^= 0x0400;
-            //self.v_address_register.set_nametable_x(!nx);
             } else {
                 let nx = self.v_address_register.coarse_x();
                 self.v_address_register.set_coarse_x(nx + 1);

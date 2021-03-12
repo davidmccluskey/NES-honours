@@ -34,9 +34,6 @@ pub struct CartridgeHeader {
     pub mapper_1: u8,
     pub mapper_2: u8,
     pub prg_ram_size: u8,
-    pub tv_system_1: u8,
-    pub tv_system_2: u8,
-    //pub unused: [char; 5],
 }
 
 impl CartridgeHeader{
@@ -58,8 +55,6 @@ impl CartridgeHeader{
             mapper_1: data[6],
             mapper_2: data[7],
             prg_ram_size: data[8],
-            tv_system_1: data[9],
-            tv_system_2: data[10],
         }
     }
 }
