@@ -118,7 +118,7 @@ struct Sprite {
 }
 
 impl Sprite {
-    pub fn new(oam_index: usize, bytes: &[u8]) -> Self {
+    pub fn new(bytes: &[u8]) -> Self {
         Sprite {
             y: bytes[0],
             id: bytes[1],
@@ -210,11 +210,11 @@ impl PPU {
         }
         return data;
     }
-    pub fn cpu_write(&mut self, addr: u16, data: &mut u8) {
+    pub fn cpu_write(&mut self, addr: u16, data: u8) {
         match addr {
             0x0000 => {
                 //Control
-                self.controller = Controller(*data);
+                self.controller = Controller(data);
                 self.t_address_register
                     .set_nametable_x(self.controller.nametable_x());
                 self.t_address_register
@@ -222,28 +222,28 @@ impl PPU {
             }
             0x0001 => {
                 //Mask
-                self.mask = Mask(*data)
+                self.mask = Mask(data)
             }
             0x0002 => {
                 //Status
             }
             0x0003 => {
                 //OAM Address
-                self.oam_addr_port = *data;
+                self.oam_addr_port = data;
             }
             0x0004 => {
                 //OAM Data
-                self.oam_ram[self.oam_addr_port as usize] = *data;
+                self.oam_ram[self.oam_addr_port as usize] = data;
             }
             0x0005 => {
                 //Scroll
                 if self.address_latch == 0 {
-                    self.fine_x = *data & 0x07;
-                    self.t_address_register.set_coarse_x(*data >> 3);
+                    self.fine_x = data & 0x07;
+                    self.t_address_register.set_coarse_x(data >> 3);
                     self.address_latch = 1;
                 } else {
-                    self.t_address_register.set_fine_y(*data & 0x07);
-                    self.t_address_register.set_coarse_y(*data >> 3);
+                    self.t_address_register.set_fine_y(data & 0x07);
+                    self.t_address_register.set_coarse_y(data >> 3);
                     self.address_latch = 0;
                 }
             }
@@ -251,11 +251,11 @@ impl PPU {
                 //PPU Address
                 if self.address_latch == 0 {
                     let t_addr =
-                        (((*data & 0x3F) as u16) << 8) | (self.t_address_register.get() & 0x00FF);
+                        (((data & 0x3F) as u16) << 8) | (self.t_address_register.get() & 0x00FF);
                     self.t_address_register = Address(t_addr);
                     self.address_latch = 1;
                 } else {
-                    let t_addr = (self.t_address_register.get() & 0xFF00) | *data as u16;
+                    let t_addr = (self.t_address_register.get() & 0xFF00) | data as u16;
                     self.t_address_register = Address(t_addr);
                     self.v_address_register = self.t_address_register;
                     self.address_latch = 0;
@@ -346,7 +346,7 @@ impl PPU {
         return data;
     }
     #[allow(unused_comparisons)]
-    pub fn ppu_write(&mut self, mut addr: u16, data: &mut u8) {
+    pub fn ppu_write(&mut self, mut addr: u16, data: u8) {
         addr &= 0x3FFF;
         if let Some(ref c) = self.cartridge {
             if c.borrow_mut().ppu_write(addr, data) {
@@ -354,35 +354,35 @@ impl PPU {
             } else if addr >= 0x0000 && addr <= 0x1FFF {
                 //Pattern memory, usually a ROM however some games need to write to it
                 let first_index = ((addr & 0x1000) >> 12) as usize;
-                self.pattern_table[first_index][(addr & 0x0FFF) as usize] = *data;
+                self.pattern_table[first_index][(addr & 0x0FFF) as usize] = data;
             } else if addr >= 0x2000 && addr <= 0x3EFF {
                 //Nametable memory
                 addr &= 0x0FFF;
                 if c.borrow_mut().mirror == cartridge::Mirroring::Vertical {
                     if addr >= 0x0000 && addr <= 0x03FF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[0][(addr & 0x03FF) as usize] = data;
                     }
                     if addr >= 0x0400 && addr <= 0x07FF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[1][(addr & 0x03FF) as usize] = data;
                     }
                     if addr >= 0x0800 && addr <= 0x0BFF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[0][(addr & 0x03FF) as usize] = data;
                     }
                     if addr >= 0x0C00 && addr <= 0x0FFF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[1][(addr & 0x03FF) as usize] = data;
                     }
                 } else if c.borrow_mut().mirror == cartridge::Mirroring::Horizontal {
                     if addr >= 0x0000 && addr <= 0x03FF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[0][(addr & 0x03FF) as usize] = data;
                     }
                     if addr >= 0x0400 && addr <= 0x07FF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[0][(addr & 0x03FF) as usize] = data;
                     }
                     if addr >= 0x0800 && addr <= 0x0BFF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[1][(addr & 0x03FF) as usize] = data;
                     }
                     if addr >= 0x0C00 && addr <= 0x0FFF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = *data;
+                        self.name_table[1][(addr & 0x03FF) as usize] = data;
                     }
                 }
             } else if addr >= 0x3F00 && addr <= 0x3FFF {
@@ -400,7 +400,7 @@ impl PPU {
                 if addr == 0x001C {
                     addr = 0x000C
                 }
-                self.palette_table[addr as usize] = *data;
+                self.palette_table[addr as usize] = data;
             }
         }
     }
@@ -479,7 +479,6 @@ impl PPU {
         if self.mask.show_background() || self.mask.show_sprites() {
             if self.v_address_register.coarse_x() == 31 {
                 self.v_address_register.set_coarse_x(0);
-                let nx = self.v_address_register.nametable_x();
                 self.v_address_register.0 ^= 0x0400;
             } else {
                 let nx = self.v_address_register.coarse_x();
@@ -585,13 +584,13 @@ impl PPU {
             }
         }
     }
-
+    #[allow(unused_assignments)]
     fn evaluate_sprites(&mut self) {
         self.oam_sprites.clear();
         self.sprite_zero_hit = false;
         for i in 0..64 {
             let addr = i * 4;
-            let sprite = Sprite::new(i, &self.oam_ram[addr..addr + 4]);
+            let sprite = Sprite::new(&self.oam_ram[addr..addr + 4]);
 
             let left = self.scanline as usize >= sprite.y as usize;
 
@@ -621,7 +620,7 @@ impl PPU {
 
     fn reverse_bits(mut a: u8) -> u8 {
         let mut out = 0u8;
-        for i in 0..8 {
+        for _i in 0..8 {
             out <<= 1;
             out |= a & 1;
             a >>= 1;
@@ -629,6 +628,7 @@ impl PPU {
         return out;
     }
 
+    #[allow(unused_assignments)]
     pub fn clock(&mut self) {
         if self.scanline >= -1 && self.scanline < 240 {
             if self.scanline == 0 && self.cycle == 0 {
@@ -734,7 +734,7 @@ impl PPU {
                         if !(self.oam_sprites[i].attribute & 0x80 > 0)
                         {
                             let low = (self.controller.sprite_table() as u16) << 12;
-                            let high = ((self.oam_sprites[i].id as u16) << 4);
+                            let high = (self.oam_sprites[i].id as u16) << 4;
                             let sl = (self.scanline as u16) - self.oam_sprites[i].y as u16;
 
                             sprite_addr_low = low | high | sl;

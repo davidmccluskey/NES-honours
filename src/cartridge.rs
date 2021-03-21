@@ -22,7 +22,7 @@ pub struct Cartridge {
     pub c_mapper_id: u8,
     pub c_prg_banks: u8,
     pub c_chr_banks: u8,
-    mapper: Box<dyn Mapper>,
+    pub mapper: Box<dyn Mapper>,
     header: CartridgeHeader,
     pub mirror: Mirroring,
 }
@@ -127,10 +127,10 @@ impl Cartridge {
         return Ok(cartridge);
     }
 
-    pub fn cpu_write(&mut self, addr: u16, data: &mut u8) -> bool {
+    pub fn cpu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
         if self.mapper.cpu_mapper_write(addr, &mut mapped_addr){
-            self.vec_prg_memory[mapped_addr as usize] = *data;
+            self.vec_prg_memory[mapped_addr as usize] = data;
             return true;
         }else{
             return false;
@@ -156,10 +156,10 @@ impl Cartridge {
         }
     }
 
-    pub fn ppu_write(&mut self, addr: u16, data: &mut u8) -> bool {
+    pub fn ppu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
         if self.mapper.ppu_mapper_write(addr, &mut mapped_addr){
-            self.vec_chr_memory[mapped_addr as usize] = *data;
+            self.vec_chr_memory[mapped_addr as usize] = data;
             return true;
         }else{
             return false;

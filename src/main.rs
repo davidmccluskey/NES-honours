@@ -19,12 +19,26 @@ use std::path::Path;
 use std::rc::Rc;
 use std::time::Instant;
 
+pub mod apu;
 pub mod bus;
 pub mod cartridge;
 pub mod cpu_6502;
 pub mod mapper;
 pub mod mapper_0;
 pub mod ppu;
+use sdl2::audio::{AudioSpecDesired, AudioQueue};
+
+static mut NES: Option<cpu_6502::CPU6502> = None;
+
+fn queue_audio(audio: &AudioQueue<i16>, nes: &mut cpu_6502::CPU6502) {
+    let samples = &nes.bus.apu.samples;
+    let sample = samples.as_slice();
+    if audio.size() as usize <= 2 * 8 
+    {
+        audio.queue(&sample);
+    }
+    nes.bus.apu.samples.clear();
+}
 
 // handle the annoying Rect i32
 macro_rules! rect(
@@ -33,30 +47,23 @@ macro_rules! rect(
     )
 );
 
-fn step_instruction(nes: &mut cpu_6502::CPU6502) {
-    while {
-        nes.clock();
-        !nes.complete()
-    } {}
-}
-
-fn update_full_frame(nes: &mut cpu_6502::CPU6502) {
-    while {
-        nes.clock();
-        !nes.bus.ppu.frame_complete
-    } {}
-    while {
-        nes.clock();
-        !nes.complete()
-    } {}
-}
-
 fn main() -> Result<(), String> {
     let sdl_context = sdl2::init()?;
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
 
     let font_path: &Path = Path::new("./assets/monogram.ttf");
+
+    let audio_subsystem = sdl_context.audio().unwrap();
+
+    let desired_spec = AudioSpecDesired {
+        freq: Some(44100),
+        channels: Some(1),      // mono
+        samples: None,     // default sample size
+    };
+
+    let device = audio_subsystem.open_queue::<i16, _>(None, &desired_spec)?;
+    device.resume();
 
     let debug_window = video_subsys
         .window("Debug Window", 1024, 960)
@@ -124,12 +131,12 @@ fn main() -> Result<(), String> {
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
     let mut nes = cpu_6502::CPU6502::new();
-    let cartridge =
-        cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
+
+    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
     nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
 
-    let disassembly = nes.disassemble(0x0000, 0xFFFF);
     nes.reset();
+    nes.bus.set_sample_frequency(44100);
 
     let mut count = 0;
 
@@ -143,26 +150,45 @@ fn main() -> Result<(), String> {
     let mut a_pressed = false;
     let mut b_pressed = false;
     let mut start_pressed = false;
-    let mut select_pressed = false; 
+    let mut select_pressed = false;
     let mut up_pressed = false;
     let mut down_pressed = false;
     let mut right_pressed = false;
     let mut left_pressed = false;
 
+    unsafe {
+        NES = Some(nes);
+    }
     let mut now = Instant::now();
     'mainloop: loop {
-        nes.bus.controller[0] = 0x00;
+        let mut global_nes = unsafe { NES.as_mut().unwrap() };
+        global_nes.bus.controller[0] = 0x00;
 
-        if b_pressed {nes.bus.controller[0] |= 0x80;}
-        if a_pressed {nes.bus.controller[0] |= 0x40;}
-        if start_pressed {nes.bus.controller[0] |= 0x20;}
-        if select_pressed {nes.bus.controller[0] |= 0x10;}
-        if up_pressed{nes.bus.controller[0] |= 0x08;}
-        if down_pressed{nes.bus.controller[0] |= 0x04;}
-        if right_pressed{nes.bus.controller[0] |= 0x01;}
-        if left_pressed{nes.bus.controller[0] |= 0x02;}
+        if b_pressed {
+            global_nes.bus.controller[0] |= 0x80;
+        }
+        if a_pressed {
+            global_nes.bus.controller[0] |= 0x40;
+        }
+        if start_pressed {
+            global_nes.bus.controller[0] |= 0x20;
+        }
+        if select_pressed {
+            global_nes.bus.controller[0] |= 0x10;
+        }
+        if up_pressed {
+            global_nes.bus.controller[0] |= 0x08;
+        }
+        if down_pressed {
+            global_nes.bus.controller[0] |= 0x04;
+        }
+        if right_pressed {
+            global_nes.bus.controller[0] |= 0x01;
+        }
+        if left_pressed {
+            global_nes.bus.controller[0] |= 0x02;
+        }
         for event in sdl_context.event_pump()?.poll_iter() {
-            //https://sunjay.dev/learn-game-dev/smooth-movement.html
             match event {
                 Event::KeyDown {
                     keycode: Some(Keycode::X), //B
@@ -194,38 +220,33 @@ fn main() -> Result<(), String> {
                 Event::KeyDown {
                     keycode: Some(Keycode::A), //Start
                     ..
-                } => 
-                {
+                } => {
                     start_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::A), //Start
                     ..
-                } => 
-                {
+                } => {
                     start_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::S), //Select
                     ..
-                } => 
-                {
+                } => {
                     select_pressed = true;
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::S), //Select
                     ..
-                } => 
-                {
+                } => {
                     select_pressed = false;
                 }
                 /////////////////////////////////
                 Event::KeyDown {
                     keycode: Some(Keycode::Up), //D-Pad up
                     ..
-                } => 
-                {
+                } => {
                     up_pressed = true;
                 }
                 Event::KeyUp {
@@ -273,23 +294,12 @@ fn main() -> Result<(), String> {
                 } => {
                     right_pressed = false;
                 }
-                /////////////////////////////////
 
-
-
-
-                Event::KeyDown {
-                    keycode: Some(Keycode::C),
-                    ..
-                } => {
-                    step_instruction(&mut nes);
-                    count = count + 1;
-                }
                 Event::KeyDown {
                     keycode: Some(Keycode::R),
                     ..
                 } => {
-                    nes.reset();
+                    global_nes.reset();
                     clock_count = 0;
                 }
                 Event::KeyDown {
@@ -297,14 +307,6 @@ fn main() -> Result<(), String> {
                     ..
                 } => {
                     emulation_run = !emulation_run;
-                }
-                Event::KeyDown {
-                    keycode: Some(Keycode::F),
-                    ..
-                } => {
-                    update_full_frame(&mut nes);
-                    nes.bus.ppu.frame_complete = false;
-                    count = count + 1;
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::M),
@@ -326,85 +328,44 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-
-        if emulation_run == true {
-            if time < 0.0 {
-                time = time - (now.elapsed().as_secs_f32());
-            } 
-            else 
-            {
-                time = time + (1.0 / 60.0);
-                now = Instant::now();
-                while nes.bus.ppu.frame_complete == false 
-                {
-                    clock_count += 1;
-                    nes.bus.clock();
-                    if nes.bus.dma_transfer == true
-                    {
-                        if nes.bus.dma_buffer == true
-                        {
-                            if clock_count % 2 == 1 {
-                                nes.bus.dma_buffer = false;
-                            }
-                        }
-                        else 
-                        {
-                            if clock_count % 2 == 0
-                            {
-                                let page = (nes.bus.dma_page as u16) << 8;
-                                let addr = nes.bus.dma_addr as u16;
-                                nes.bus.dma_data = nes.bus.cpu_read(page | addr, false);
-                            }
-                            else
-                            {
-                                nes.bus.ppu.oam_ram[nes.bus.dma_addr as usize] = nes.bus.dma_data;
-                                if nes.bus.dma_addr !=255{
-                                    nes.bus.dma_addr +=1;
-                                }else
-                                {
-                                    nes.bus.dma_addr = 0x00;
-                                    nes.bus.dma_transfer = false;
-                                    nes.bus.dma_buffer = true;
-                                }
-                            }
-                        }
-                    }else
-                    {
-                        nes.clock();
-                    }
-                }
-                nes.bus.ppu.frame_complete = false;
-                main_canvas.clear();
-                debug_canvas.clear();
-        
-                if debug == true {
-                    draw_debug(&mut debug_canvas, &mut nes, &font, &disassembly);
-                    render_pattern_table(
-                        &mut debug_canvas,
-                        &mut nes,
-                        rect!(10, 694, 256, 256),
-                        &mut pattern_one,
-                        0,
-                    );
-                    render_pattern_table(
-                        &mut debug_canvas,
-                        &mut nes,
-                        rect!(276, 694, 256, 256),
-                        &mut pattern_two,
-                        1,
-                    );
-                }
-                render_frame(
-                    &mut main_canvas,
-                    &mut nes,
-                    rect!(0, 0, RENDER_WIDTH * 4, RENDER_HEIGHT * 4),
-                    &mut screen_texture,
-                );
-                main_canvas.present();
-                debug_canvas.present();
-            }
+        //clock_nes(global_nes);
+        main_canvas.clear();
+        debug_canvas.clear();
+        if time > 0.0 {
+            time = time - (now.elapsed().as_secs_f32());
+        } 
+        else 
+        {
+            time = time + (0.3333) - now.elapsed().as_secs_f32();
+            clock_nes(global_nes);
+            queue_audio(&device, global_nes);
+            now = Instant::now();
         }
-
+        if debug == true {
+            //draw_debug(&mut debug_canvas, &mut global_nes, &font, &disassembly);
+            render_pattern_table(
+                &mut debug_canvas,
+                &mut global_nes,
+                rect!(10, 694, 256, 256),
+                &mut pattern_one,
+                0,
+            );
+            render_pattern_table(
+                &mut debug_canvas,
+                &mut global_nes,
+                rect!(276, 694, 256, 256),
+                &mut pattern_two,
+                1,
+            );
+        }
+        render_frame(
+            &mut main_canvas,
+            &mut global_nes,
+            rect!(0, 0, RENDER_WIDTH * 4, RENDER_HEIGHT * 4),
+            &mut screen_texture,
+        );
+        main_canvas.present();
+        debug_canvas.present();
     }
     Ok(())
 }
@@ -600,8 +561,7 @@ fn draw_debug(
         }
     }
 
-    for x in 0..10 
-    {
+    for x in 0..10 {
         let mut sprite_debug = "".to_owned();
         sprite_debug.push_str(&(format!("{}: ", x)));
         sprite_debug.push_str(&(format!("({}", nes.bus.ppu.oam_ram[x * 4 + 3])));
@@ -609,10 +569,49 @@ fn draw_debug(
         sprite_debug.push_str(&(format!(" ID:{}", nes.bus.ppu.oam_ram[x * 4 + 1])));
         sprite_debug.push_str(&(format!(" AT:{}", nes.bus.ppu.oam_ram[x * 4 + 2])));
 
-        draw_line(rect!(400, 170 + (x * 50), 300, 40), &sprite_debug, debug_canvas, &font, Color::WHITE)
+        draw_line(
+            rect!(400, 170 + (x * 50), 300, 40),
+            &sprite_debug,
+            debug_canvas,
+            &font,
+            Color::WHITE,
+        )
     }
 }
 
+fn clock_nes(global_nes: &mut cpu_6502::CPU6502){
+    let mut clock_count = 0;
+    while global_nes.bus.ppu.frame_complete == false 
+    {
+        clock_count += 1;
+        global_nes.bus.clock();
+        if global_nes.bus.dma_transfer == true {
+            if global_nes.bus.dma_buffer == true {
+                if clock_count % 2 == 1 {
+                    global_nes.bus.dma_buffer = false;
+                }
+            } else {
+                if clock_count % 2 == 0 {
+                    let page = (global_nes.bus.dma_page as u16) << 8;
+                    let addr = global_nes.bus.dma_addr as u16;
+                    global_nes.bus.dma_data = global_nes.bus.cpu_read(page | addr, false);
+                } else {
+                    global_nes.bus.ppu.oam_ram[global_nes.bus.dma_addr as usize] = global_nes.bus.dma_data;
+                    if global_nes.bus.dma_addr != 255 {
+                        global_nes.bus.dma_addr += 1;
+                    } else {
+                        global_nes.bus.dma_addr = 0x00;
+                        global_nes.bus.dma_transfer = false;
+                        global_nes.bus.dma_buffer = true;
+                    }
+                }
+            }
+        } else {
+            global_nes.clock();
+        }
+    }
+    global_nes.bus.ppu.frame_complete = false;
+}
 fn render_frame(
     canvas: &mut WindowCanvas,
     nes: &mut cpu_6502::CPU6502,

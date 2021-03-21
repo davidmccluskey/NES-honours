@@ -128,7 +128,7 @@ impl CPU6502{
     }
 
     pub fn write(&mut self, addr: u16, data: &mut u8){
-        self.bus.cpu_write(addr, data);
+        self.bus.cpu_write(addr, *data);
     }
 
     // Reset Interrupt
@@ -275,6 +275,10 @@ impl CPU6502{
         if self.bus.nmi_required == true{
             self.bus.nmi_required = false;
             self.nmi();
+        }
+        if self.bus.irq_required == true{
+            self.bus.irq_required = false;
+            self.irq();
         }
         if self.cycles == 0 {
             //let log_pc = self.pc;
