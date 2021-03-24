@@ -47,7 +47,34 @@ macro_rules! rect(
     )
 );
 
+fn validate_rom() -> cartridge::Cartridge
+{
+    use std::io::{stdin};
+    print!("{}[2J", 27 as char);
+    println!("Please enter a ROM path: ");
+    loop
+    {
+        let mut rom = String::new();
+        stdin().read_line(&mut rom).unwrap().to_string();
+        rom.truncate(rom.len() - 1);
+
+        if rom == "/Users/multivac/NES/source/src/roms/mario.nes".to_string()
+        {
+            println!("valid");
+        }
+        let cartridge = cartridge::Cartridge::new(rom);
+        match cartridge {
+            Ok(file) => return file,
+            Err(error) => println!("\n{}", error),
+        };
+    }
+}
+
 fn main() -> Result<(), String> {
+    let mut nes = cpu_6502::CPU6502::new();
+    let cartridge = validate_rom();
+    nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
+
     let sdl_context = sdl2::init()?;
     let video_subsys = sdl_context.video()?;
     let ttf_context = sdl2::ttf::init().map_err(|e| e.to_string())?;
@@ -58,7 +85,7 @@ fn main() -> Result<(), String> {
 
     let desired_spec = AudioSpecDesired {
         freq: Some(44100),
-        channels: Some(1),      // mono
+        channels: Some(1), // mono
         samples: None,     // default sample size
     };
 
@@ -130,22 +157,14 @@ fn main() -> Result<(), String> {
     let mut font = ttf_context.load_font(font_path, 128)?;
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
-    let mut nes = cpu_6502::CPU6502::new();
-
-    let cartridge = cartridge::Cartridge::new("/Users/multivac/NES/source/src/roms/mario.nes".to_string());
-    nes.bus.connect_cartridge(Rc::new(RefCell::new(cartridge)));
-
     nes.reset();
     nes.bus.set_sample_frequency(44100);
-
-    let mut count = 0;
-
+    let disassembly = nes.disassemble(0x0000, 0xFFFF);
     let mut emulation_run = true;
     let mut time: f32 = 0.0;
 
     let mut debug = false;
     debug_canvas.window_mut().hide();
-    let mut clock_count = 0;
 
     let mut a_pressed = false;
     let mut b_pressed = false;
@@ -300,7 +319,6 @@ fn main() -> Result<(), String> {
                     ..
                 } => {
                     global_nes.reset();
-                    clock_count = 0;
                 }
                 Event::KeyDown {
                     keycode: Some(Keycode::Space),
@@ -336,13 +354,13 @@ fn main() -> Result<(), String> {
         } 
         else 
         {
-            time = time + (0.3333) - now.elapsed().as_secs_f32();
+            time = time + (0.16666) - now.elapsed().as_secs_f32();
             clock_nes(global_nes);
             queue_audio(&device, global_nes);
             now = Instant::now();
         }
         if debug == true {
-            //draw_debug(&mut debug_canvas, &mut global_nes, &font, &disassembly);
+            draw_debug(&mut debug_canvas, &mut global_nes, &font, &disassembly);
             render_pattern_table(
                 &mut debug_canvas,
                 &mut global_nes,

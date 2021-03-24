@@ -108,9 +108,8 @@ impl APU {
             0x4003 =>
              {
                 self.pulse_0.length_counter.pending_register = Some(data);
-                let sequence_high = data & 0x7;
                 self.pulse_0.sequencer.decay = (self.pulse_0.sequencer.decay & 0x00FF) | ((data as u16 & 0x7) << 8);
-                self.pulse_0.envelope.start = true;
+                self.pulse_0.envelope.restart = true;
                 self.pulse_0.sequencer.current_step = 0; 
             }
             0x4004 => {
@@ -132,7 +131,7 @@ impl APU {
              {
                 self.pulse_1.length_counter.pending_register = Some(data);
                 self.pulse_1.sequencer.decay = (self.pulse_1.sequencer.decay & 0x00FF) | ((data as u16 & 0x7) << 8);
-                self.pulse_1.envelope.start = true;
+                self.pulse_1.envelope.restart = true;
                 self.pulse_1.sequencer.current_step = 0; 
             }
             0x4008 => 
@@ -185,7 +184,7 @@ impl APU {
             0x400F => 
             {
                 self.noise.length_counter.pending_register = Some(data);
-                self.noise.envelope.start = true;
+                self.noise.envelope.restart = true;
             },
             0x4015 => {
                 self.pulse_0.length_counter.enable(data & 0x1 != 0);
@@ -335,8 +334,8 @@ impl APU {
         let noise = self.noise.sample() as f64;
         let dmc = self.dmc.output as f64;
 
-        let pulse_out = 95.88 / ((8218.0 / (0.0 + 0.0)) + 100.0);
-        let tnd_out = 159.79 / ((1.0 / (triangle / 8227.0 + 0.0 / 12241.0 + 0.0 / 22638.0)) + 100.0);
+        let pulse_out = 95.88 / ((8218.0 / (pulse_0 + pulse_1)) + 100.0);
+        let tnd_out = 159.79 / ((1.0 / (triangle / 8227.0 + noise / 12241.0 + dmc / 22638.0)) + 100.0);
 
         let mut output = (pulse_out + tnd_out) * 65535.0;
 
@@ -367,6 +366,7 @@ impl PULSE {
         }
     }
 
+    #[allow(unused_assignments)]
     pub fn sample(&self) -> u8 {
         let mut period = 0;
         if self.sweeper.negate == false
@@ -441,6 +441,7 @@ impl SWEEPER {
         }
     }
 
+    #[allow(unused_assignments)]
     pub fn clock(&mut self, sequencer: &mut SEQUENCER) {
         if self.counter == 0 && self.enabled && self.shift > 0 && sequencer.decay >= 8 
         {
@@ -529,7 +530,7 @@ pub struct ENVELOPE {
     controller: EnvelopeRegister,
     counter: u8,
     level: u8,
-    start: bool,
+    restart: bool,
 }
 
 impl ENVELOPE {
@@ -538,14 +539,14 @@ impl ENVELOPE {
             counter: 0,
             level: 0,
             controller: EnvelopeRegister(0),
-            start: false,
+            restart: false,
         }
     }
 
     pub fn clock(&mut self) {
-        if self.start 
+        if self.restart 
         {
-            self.start = false;
+            self.restart = false;
             self.level = 0x0F;
             self.counter = self.controller.decay();
         } else 

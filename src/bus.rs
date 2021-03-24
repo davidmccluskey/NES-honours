@@ -25,7 +25,7 @@ pub struct Bus {
   pub time_per_audio_sample: f64,
   pub time_per_nes_clock: f64,
   pub audio_real_time: f64,
-  pub clock_count: u64
+  pub clock_count: u64,
 }
 
 impl Bus {
@@ -74,6 +74,8 @@ impl Bus {
       } else if addr >= 0x4016 && addr <= 0x4017 {
         self.controller_state[0] = self.controller[0];
       }
+    }else{
+      self.ram[(addr & 0x07FF) as usize] = data;
     }
   }
 
@@ -84,7 +86,8 @@ impl Bus {
 
     if let Some(ref c) = self.cartridge {
       if c.borrow_mut().cpu_read(addr, &mut data) {
-      } else if addr >= 0x0000 && addr <= 0x1FFF {
+      } else if addr >= 0x0000 && addr <= 0x1FFF 
+      {
         data = self.ram[(addr & 0x07FF) as usize];
       } else if addr >= 0x2000 && addr <= 0x3FFF {
         data = self.ppu.cpu_read(addr & 0x0007, read_only);
@@ -92,6 +95,9 @@ impl Bus {
         data = ((self.controller_state[0] & 0x80) > 0) as u8;
         self.controller_state[0] <<= 1;
       }
+    }else
+    {
+      data = self.ram[(addr & 0x07FF) as usize];
     }
 
     return data;
@@ -113,19 +119,16 @@ impl Bus {
 
     self.apu.clock();
 
-
     let mut sample_ready = false;
     self.audio_real_time += self.time_per_nes_clock;
 
     //println!("{}", self.audio_real_time);
 
-    if self.audio_real_time >= self.time_per_audio_sample
-    {
+    if self.audio_real_time >= self.time_per_audio_sample {
       self.audio_real_time -= self.time_per_audio_sample;
       sample_ready = true;
     }
-    if self.ppu.nmi_enabled 
-    {
+    if self.ppu.nmi_enabled {
       self.ppu.nmi_enabled = false;
       self.nmi_required = true;
     }

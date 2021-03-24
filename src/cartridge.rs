@@ -60,9 +60,13 @@ impl CartridgeHeader{
 }
 
 impl Cartridge {
-    pub fn new(filename: String) -> Self {
-        let cartridge = Cartridge::read_rom(filename).unwrap();
-        return cartridge;
+    pub fn new(filename: String) -> Result<Cartridge, io::Error> {
+        let f = Cartridge::read_rom(filename);
+
+        let _f = match f {
+            Ok(file) => return Ok(file),
+            Err(error) => return Err(error),
+        };
     }
 
     pub fn read_rom(filename: String) -> Result<Cartridge, io::Error> {
