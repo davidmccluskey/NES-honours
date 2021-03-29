@@ -158,7 +158,6 @@ fn main() -> Result<(), String> {
     font.set_style(sdl2::ttf::FontStyle::BOLD);
 
     nes.reset();
-    nes.bus.set_sample_frequency(44100);
     let disassembly = nes.disassemble(0x0000, 0xFFFF);
     let mut emulation_run = true;
     let mut time: f32 = 0.0;

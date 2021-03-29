@@ -276,6 +276,25 @@ impl PPU {
             _ => (), //required by rust
         }
     }
+
+    pub fn render(&mut self) -> [u8; RENDER_FULL] {
+        let mut frame = [0; RENDER_FULL];
+        for i in 0..RENDER_SIZE {
+            let c = self.sprite_screen[i];
+            
+
+            let (mut r, mut g, mut b) = SYSTEM_PALETTE[c as usize];
+            if self.mask.emphasize_red()
+            {
+                r = r * 2;
+            }
+            frame[i * 3 + 0] = r;
+            frame[i * 3 + 1] = g;
+            frame[i * 3 + 2] = b;
+        }
+        return frame;
+    }
+
     #[allow(unused_comparisons)]
     pub fn ppu_read(&mut self, mut addr: u16, _read_only: bool) -> u8 {
         let mut data: u8 = 0x00;
@@ -432,18 +451,6 @@ impl PPU {
             }
         }
         return self.render_palette(index);
-    }
-
-    pub fn render(&self) -> [u8; RENDER_FULL] {
-        let mut frame = [0; RENDER_FULL];
-        for i in 0..RENDER_SIZE {
-            let c = self.sprite_screen[i];
-            let (r, g, b) = SYSTEM_PALETTE[c as usize];
-            frame[i * 3 + 0] = r;
-            frame[i * 3 + 1] = g;
-            frame[i * 3 + 2] = b;
-        }
-        return frame;
     }
     pub fn render_palette(&self, index: u8) -> [u8; (128 * 128) * 3] {
         let mut frame = [0; (128 * 128) * 3];

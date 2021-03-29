@@ -23,7 +23,7 @@ pub struct Cartridge {
     pub c_prg_banks: u8,
     pub c_chr_banks: u8,
     pub mapper: Box<dyn Mapper>,
-    header: CartridgeHeader,
+    pub header: CartridgeHeader,
     pub mirror: Mirroring,
 }
 
@@ -169,4 +169,24 @@ impl Cartridge {
             return false;
         }
     }
+}
+
+
+#[test]
+fn test_new()
+{
+    let car = Cartridge::new("src/test/nestest.nes".to_string()).unwrap();
+
+    assert_eq!(car.header.mapper_1, 0);
+    assert_eq!(car.header.name, ['N', 'E', 'S', '\x1a']);
+    assert_eq!(car.header.prg_rom_pages, 1);
+    assert_eq!(car.header.chr_rom_pages, 1);
+    assert_eq!(car.header.prg_ram_size, 0);
+
+    assert_eq!(car.vec_prg_memory.len(), 16384);
+    assert_eq!(car.vec_chr_memory.len(), 8192);
+    assert_eq!(car.c_mapper_id, 0);
+    assert_eq!(car.c_chr_banks, 1);
+    assert_eq!(car.c_prg_banks, 1);
+    assert_eq!(car.mirror, Mirroring::Horizontal);
 }
