@@ -5,15 +5,8 @@ use std::io;
 use std::io::Read;
 
 use crate::mapper::Mapper;
+use crate::mapper::Mirroring;
 use crate::mapper_0::Mapper0;
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Mirroring {
-    Vertical,
-    Horizontal,
-    OnescreenLow,
-    OnescreenHigh,
-}
 
 #[allow(dead_code)]
 pub struct Cartridge {
@@ -24,7 +17,7 @@ pub struct Cartridge {
     pub c_chr_banks: u8,
     pub mapper: Box<dyn Mapper>,
     pub header: CartridgeHeader,
-    pub mirror: Mirroring,
+    pub hardware_mirror: Mirroring,
 }
 
 pub struct CartridgeHeader {
@@ -88,24 +81,43 @@ impl Cartridge {
         let mut vec_chr_memory: Vec<u8> = Vec::new();
 
 
+        // if file_type == 0{
+        //     //TODO
+        // }else if file_type == 1
+        // {
+        //     let prg: usize = cartridge_header.prg_rom_pages as usize;
+        //     let prg_size = prg * 16384;
+        //     vec_prg_memory.resize(prg_size, 0);
+        //     file.read_exact(&mut vec_prg_memory)?;
 
-        if file_type == 0{
-            //TODO
-        }else if file_type == 1
+        //     let chr: usize = cartridge_header.chr_rom_pages as usize;
+        //     let chr_size = chr * 8192;
+        //     vec_chr_memory.resize(chr_size, 0);
+        //     file.read_exact(&mut vec_chr_memory)?;
+        // }else if file_type == 2{
+        //     //TODO
+        // }
+        let prg: usize = cartridge_header.prg_rom_pages as usize;
+        let prg_size = prg * 16384;
+        vec_prg_memory.resize(prg_size, 0);
+        file.read_exact(&mut vec_prg_memory)?;
+
+        let chr: usize = cartridge_header.chr_rom_pages as usize;
+        let mut chr_size = 0;
+        if chr == 0
         {
-            let prg: usize = cartridge_header.prg_rom_pages as usize;
-            let prg_size = prg * 16384;
-            vec_prg_memory.resize(prg_size, 0);
-            file.read_exact(&mut vec_prg_memory)?;
-
-            let chr: usize = cartridge_header.chr_rom_pages as usize;
-            let chr_size = chr * 8192;
-            vec_chr_memory.resize(chr_size, 0);
-            file.read_exact(&mut vec_chr_memory)?;
-        }else if file_type == 2{
-            //TODO
+            chr_size = 8192;
+        }else
+        {
+            chr_size = chr * 8192;
         }
+        vec_chr_memory.resize(chr_size, 0);
+        let mut handle = file.take(chr_size as u64);
+        handle.read(&mut vec_chr_memory);
+        //file.take(chr_size as u64).read_to_end(&mut vec_chr_memory)?;
+        //file.read_exact(&mut vec_chr_memory)?;
 
+        println!("mapper: {}", mapper_id);
         let mapper: Box<dyn Mapper> = match mapper_id {
             0 => Box::new(Mapper0::new(
                 cartridge_header.prg_rom_pages,
@@ -121,7 +133,8 @@ impl Cartridge {
             c_prg_banks: cartridge_header.prg_rom_pages,
             c_chr_banks: cartridge_header.chr_rom_pages,
             mapper: mapper,
-            mirror: if cartridge_header.mapper_1 & 0x01 == 0{
+            hardware_mirror: if cartridge_header.mapper_1 & 0x01 == 0
+            {
                 Mirroring::Horizontal
             }else{
                 Mirroring::Vertical
@@ -131,6 +144,9 @@ impl Cartridge {
         return Ok(cartridge);
     }
 
+    pub fn reset(&mut self){
+        self.mapper.reset();
+    }
     pub fn cpu_write(&mut self, addr: u16, data: u8) -> bool {
         let mut mapped_addr: u32 = 0;
         if self.mapper.cpu_mapper_write(addr, &mut mapped_addr){
@@ -169,6 +185,17 @@ impl Cartridge {
             return false;
         }
     }
+
+    pub fn mirror(&mut self) -> Mirroring{
+        let mirror = self.mapper.mirror();
+        if mirror == Mirroring::Hardware
+        {
+            return self.hardware_mirror;
+        }else
+        {
+            return mirror;
+        }
+    }
 }
 
 
@@ -188,5 +215,4 @@ fn test_new()
     assert_eq!(car.c_mapper_id, 0);
     assert_eq!(car.c_chr_banks, 1);
     assert_eq!(car.c_prg_banks, 1);
-    assert_eq!(car.mirror, Mirroring::Horizontal);
 }

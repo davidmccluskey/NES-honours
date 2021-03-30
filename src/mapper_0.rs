@@ -1,4 +1,4 @@
-use crate::mapper::Mapper;
+use crate::mapper::{Mapper, Mirroring};
 
 pub struct Mapper0 {
     n_prg_banks: u8,
@@ -62,6 +62,14 @@ impl Mapper for Mapper0 {
             }
         }
         return false;
+    }
+
+    fn mirror(&mut self) -> Mirroring{
+        return Mirroring::Hardware;
+    }
+
+    fn reset(&mut self){
+
     }
 }
 

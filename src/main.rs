@@ -58,7 +58,7 @@ fn validate_rom() -> cartridge::Cartridge
         stdin().read_line(&mut rom).unwrap().to_string();
         rom.truncate(rom.len() - 1);
 
-        if rom == "/Users/multivac/NES/source/src/roms/mario.nes".to_string()
+        if rom == "/Users/multivac/NES/source/src/roms/cpu.nes".to_string()
         {
             println!("valid");
         }

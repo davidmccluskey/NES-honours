@@ -112,5 +112,10 @@ impl Bus {
   pub fn reset(&mut self) {
     self.system_clock = 0;
     self.ppu.reset();
+
+    if let Some(ref c) = self.cartridge 
+    {
+      c.borrow_mut().reset();
+    }
   }
 }

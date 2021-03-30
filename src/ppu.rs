@@ -1,5 +1,6 @@
 use crate::cartridge;
 use crate::cartridge::Cartridge;
+use crate::mapper::Mirroring;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub const RENDER_WIDTH: usize = 256;
@@ -284,10 +285,10 @@ impl PPU {
             
 
             let (mut r, mut g, mut b) = SYSTEM_PALETTE[c as usize];
-            if self.mask.emphasize_red()
-            {
-                r = r * 2;
-            }
+            if self.mask.emphasize_red(){r = r * 2;}
+            if self.mask.emphasize_blue(){b = b * 2;}
+            if self.mask.emphasize_green(){g = g * 2;}
+
             frame[i * 3 + 0] = r;
             frame[i * 3 + 1] = g;
             frame[i * 3 + 2] = b;
@@ -312,7 +313,7 @@ impl PPU {
             } else if addr >= 0x2000 && addr <= 0x3EFF {
                 //Nametable memory
                 addr &= 0x0FFF;
-                if c.borrow_mut().mirror == cartridge::Mirroring::Vertical {
+                if c.borrow_mut().mirror() == Mirroring::Vertical {
                     if addr >= 0x0000 && addr <= 0x03FF {
                         data = self.name_table[0][(addr & 0x03FF) as usize];
                     }
@@ -325,7 +326,7 @@ impl PPU {
                     if addr >= 0x0C00 && addr <= 0x0FFF {
                         data = self.name_table[1][(addr & 0x03FF) as usize];
                     }
-                } else if c.borrow_mut().mirror == cartridge::Mirroring::Horizontal {
+                } else if c.borrow_mut().mirror() == Mirroring::Horizontal {
                     if addr >= 0x0000 && addr <= 0x03FF {
                         data = self.name_table[0][(addr & 0x03FF) as usize];
                     }
@@ -377,7 +378,7 @@ impl PPU {
             } else if addr >= 0x2000 && addr <= 0x3EFF {
                 //Nametable memory
                 addr &= 0x0FFF;
-                if c.borrow_mut().mirror == cartridge::Mirroring::Vertical {
+                if c.borrow_mut().mirror() == Mirroring::Vertical {
                     if addr >= 0x0000 && addr <= 0x03FF {
                         self.name_table[0][(addr & 0x03FF) as usize] = data;
                     }
@@ -390,7 +391,7 @@ impl PPU {
                     if addr >= 0x0C00 && addr <= 0x0FFF {
                         self.name_table[1][(addr & 0x03FF) as usize] = data;
                     }
-                } else if c.borrow_mut().mirror == cartridge::Mirroring::Horizontal {
+                } else if c.borrow_mut().mirror() == Mirroring::Horizontal {
                     if addr >= 0x0000 && addr <= 0x03FF {
                         self.name_table[0][(addr & 0x03FF) as usize] = data;
                     }
