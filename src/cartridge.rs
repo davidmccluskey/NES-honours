@@ -4,9 +4,13 @@ use std::io::SeekFrom;
 use std::io;
 use std::io::Read;
 
-use crate::mapper::Mapper;
-use crate::mapper::Mirroring;
-use crate::mapper_0::Mapper0;
+use crate::Mappers::mapper::Mapper;
+use crate::Mappers::mapper::Mirroring;
+
+use crate::Mappers::mapper_0::Mapper0;
+use crate::Mappers::mapper_1::Mapper1;
+use crate::Mappers::mapper_2::Mapper2;
+
 
 #[allow(dead_code)]
 pub struct Cartridge {
@@ -123,6 +127,8 @@ impl Cartridge {
                 cartridge_header.prg_rom_pages,
                 cartridge_header.chr_rom_pages,
             )),
+            //1 => Box::new(Mapper1::new()),
+           // 2 => Box::new(Mapper1::new()),
             n => panic!("Mapper {} not implemented", n),
         };
 

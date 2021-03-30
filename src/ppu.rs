@@ -1,6 +1,6 @@
 use crate::cartridge;
 use crate::cartridge::Cartridge;
-use crate::mapper::Mirroring;
+use crate::Mappers::mapper::Mirroring;
 use std::cell::RefCell;
 use std::rc::Rc;
 pub const RENDER_WIDTH: usize = 256;

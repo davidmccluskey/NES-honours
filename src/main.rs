@@ -23,8 +23,7 @@ pub mod apu;
 pub mod bus;
 pub mod cartridge;
 pub mod cpu_6502;
-pub mod mapper;
-pub mod mapper_0;
+pub mod Mappers;
 pub mod ppu;
 use sdl2::audio::{AudioSpecDesired, AudioQueue};
 

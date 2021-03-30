@@ -1,4 +1,4 @@
-use crate::mapper::{Mapper, Mirroring};
+use crate::Mappers::mapper::{Mapper, Mirroring};
 
 pub struct Mapper0 {
     n_prg_banks: u8,
