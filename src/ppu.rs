@@ -83,10 +83,10 @@ pub struct PPU {
     controller: Controller,
     mask: Mask,
     status: Status,
-    v_address_register: Address,
-    t_address_register: Address,
+    v_addressess_register: Address,
+    t_addressess_register: Address,
     fine_x: u8,
-    address_latch: u8,
+    addressess_latch: u8,
     data_buffer: u8,
     pub nmi_enabled: bool,
     bg_tile_id: u8,
@@ -102,7 +102,7 @@ pub struct PPU {
     //Foreground Rendering
     pub oam_ram: [u8; 256],
     oam_sprites: Vec<Sprite>,
-    pub oam_addr_port: u8,
+    pub oam_address_port: u8,
     sprite_shifter_low: [u8; 8],
     sprite_shifter_high: [u8; 8],
 
@@ -146,11 +146,11 @@ impl PPU {
             mask: Mask(0),
             status: Status(0),
 
-            v_address_register: Address(0),
-            t_address_register: Address(0),
+            v_addressess_register: Address(0),
+            t_addressess_register: Address(0),
 
             fine_x: 0,
-            address_latch: 0,
+            addressess_latch: 0,
             data_buffer: 0,
             nmi_enabled: false,
             bg_tile_id: 0,
@@ -164,7 +164,7 @@ impl PPU {
 
             oam_ram: [0; 256],
             oam_sprites: Vec::with_capacity(8),
-            oam_addr_port: 0,
+            oam_address_port: 0,
             sprite_shifter_low: [0; 8],
             sprite_shifter_high: [0; 8],
 
@@ -172,9 +172,9 @@ impl PPU {
             sprite_zero_rendered: false,
         }
     }
-    pub fn cpu_read(&mut self, addr: u16, read_only: bool) -> u8 {
+    pub fn cpu_read(&mut self, address: u16, read_only: bool) -> u8 {
         let mut data: u8 = 0x00;
-        match addr {
+        match address {
             0x0000 => { //Control
             }
             0x0001 => (), //Mask
@@ -182,43 +182,43 @@ impl PPU {
                 //Status
                 data = (self.status.get() & 0xE0) | (self.data_buffer & 0x1F);
                 self.status.set_vblank(false);
-                self.address_latch = 0;
+                self.addressess_latch = 0;
             }
             0x0003 => (), //OAM Address
             0x0004 => {
                 //OAM Data
-                data = self.oam_ram[self.oam_addr_port as usize];
+                data = self.oam_ram[self.oam_address_port as usize];
             }
             0x0005 => (), //Scroll
             0x0006 => (), //PPU Address
             0x0007 => {
                 //PPU data
                 data = self.data_buffer;
-                self.data_buffer = self.ppu_read(self.v_address_register.get(), read_only);
+                self.data_buffer = self.ppu_read(self.v_addressess_register.get(), read_only);
 
-                if self.v_address_register.get() >= 0x3F00 {
+                if self.v_addressess_register.get() >= 0x3F00 {
                     data = self.data_buffer;
                 }
                 if self.controller.increment() == true {
-                    self.v_address_register =
-                        Address(self.v_address_register.get().wrapping_add(32));
+                    self.v_addressess_register =
+                        Address(self.v_addressess_register.get().wrapping_add(32));
                 } else {
-                    self.v_address_register =
-                        Address(self.v_address_register.get().wrapping_add(1));
+                    self.v_addressess_register =
+                        Address(self.v_addressess_register.get().wrapping_add(1));
                 }
             }
             _ => (), //required by rust
         }
         return data;
     }
-    pub fn cpu_write(&mut self, addr: u16, data: u8) {
-        match addr {
+    pub fn cpu_write(&mut self, address: u16, data: u8) {
+        match address {
             0x0000 => {
                 //Control
                 self.controller = Controller(data);
-                self.t_address_register
+                self.t_addressess_register
                     .set_nametable_x(self.controller.nametable_x());
-                self.t_address_register
+                self.t_addressess_register
                     .set_nametable_y(self.controller.nametable_y());
             }
             0x0001 => {
@@ -230,48 +230,48 @@ impl PPU {
             }
             0x0003 => {
                 //OAM Address
-                self.oam_addr_port = data;
+                self.oam_address_port = data;
             }
             0x0004 => {
                 //OAM Data
-                self.oam_ram[self.oam_addr_port as usize] = data;
+                self.oam_ram[self.oam_address_port as usize] = data;
             }
             0x0005 => {
                 //Scroll
-                if self.address_latch == 0 {
+                if self.addressess_latch == 0 {
                     self.fine_x = data & 0x07;
-                    self.t_address_register.set_coarse_x(data >> 3);
-                    self.address_latch = 1;
+                    self.t_addressess_register.set_coarse_x(data >> 3);
+                    self.addressess_latch = 1;
                 } else {
-                    self.t_address_register.set_fine_y(data & 0x07);
-                    self.t_address_register.set_coarse_y(data >> 3);
-                    self.address_latch = 0;
+                    self.t_addressess_register.set_fine_y(data & 0x07);
+                    self.t_addressess_register.set_coarse_y(data >> 3);
+                    self.addressess_latch = 0;
                 }
             }
             0x0006 => {
                 //PPU Address
-                if self.address_latch == 0 {
-                    let t_addr =
-                        (((data & 0x3F) as u16) << 8) | (self.t_address_register.get() & 0x00FF);
-                    self.t_address_register = Address(t_addr);
-                    self.address_latch = 1;
+                if self.addressess_latch == 0 {
+                    let t_address =
+                        (((data & 0x3F) as u16) << 8) | (self.t_addressess_register.get() & 0x00FF);
+                    self.t_addressess_register = Address(t_address);
+                    self.addressess_latch = 1;
                 } else {
-                    let t_addr = (self.t_address_register.get() & 0xFF00) | data as u16;
-                    self.t_address_register = Address(t_addr);
-                    self.v_address_register = self.t_address_register;
-                    self.address_latch = 0;
+                    let t_address = (self.t_addressess_register.get() & 0xFF00) | data as u16;
+                    self.t_addressess_register = Address(t_address);
+                    self.v_addressess_register = self.t_addressess_register;
+                    self.addressess_latch = 0;
                 }
             }
             0x0007 => {
                 //PPU Data
-                self.ppu_write(self.v_address_register.get(), data);
+                self.ppu_write(self.v_addressess_register.get(), data);
 
                 if self.controller.increment() == true {
-                    self.v_address_register =
-                        Address(self.v_address_register.get().wrapping_add(32));
+                    self.v_addressess_register =
+                        Address(self.v_addressess_register.get().wrapping_add(32));
                 } else {
-                    self.v_address_register =
-                        Address(self.v_address_register.get().wrapping_add(1));
+                    self.v_addressess_register =
+                        Address(self.v_addressess_register.get().wrapping_add(1));
                 }
             }
             _ => (), //required by rust
@@ -297,68 +297,68 @@ impl PPU {
     }
 
     #[allow(unused_comparisons)]
-    pub fn ppu_read(&mut self, mut addr: u16, _read_only: bool) -> u8 {
+    pub fn ppu_read(&mut self, mut address: u16, _read_only: bool) -> u8 {
         let mut data: u8 = 0x00;
-        addr &= 0x3FFF;
+        address &= 0x3FFF;
 
         if let Some(ref c) = self.cartridge {
-            if c.borrow_mut().ppu_read(addr, &mut data) {
+            if c.borrow_mut().ppu_read(address, &mut data) {
                 //Should always be false
-            } else if addr >= 0x0000 && addr <= 0x1FFF {
+            } else if address >= 0x0000 && address <= 0x1FFF {
                 //Pattern memory
                 //First index chooses whether it's the left or the right pattern table, second is index within that table
-                let first_index = ((addr & 0x1000) >> 12) as usize;
-                let second_index = (addr & 0x0FFF) as usize;
+                let first_index = ((address & 0x1000) >> 12) as usize;
+                let second_index = (address & 0x0FFF) as usize;
                 data = self.pattern_table[first_index][second_index];
-            } else if addr >= 0x2000 && addr <= 0x3EFF {
+            } else if address >= 0x2000 && address <= 0x3EFF {
                 //Nametable memory
-                addr &= 0x0FFF;
+                address &= 0x0FFF;
                 if c.borrow_mut().mirror() == Mirroring::Vertical {
-                    if addr >= 0x0000 && addr <= 0x03FF {
-                        data = self.name_table[0][(addr & 0x03FF) as usize];
+                    if address >= 0x0000 && address <= 0x03FF {
+                        data = self.name_table[0][(address & 0x03FF) as usize];
                     }
-                    if addr >= 0x0400 && addr <= 0x07FF {
-                        data = self.name_table[1][(addr & 0x03FF) as usize];
+                    if address >= 0x0400 && address <= 0x07FF {
+                        data = self.name_table[1][(address & 0x03FF) as usize];
                     }
-                    if addr >= 0x0800 && addr <= 0x0BFF {
-                        data = self.name_table[0][(addr & 0x03FF) as usize];
+                    if address >= 0x0800 && address <= 0x0BFF {
+                        data = self.name_table[0][(address & 0x03FF) as usize];
                     }
-                    if addr >= 0x0C00 && addr <= 0x0FFF {
-                        data = self.name_table[1][(addr & 0x03FF) as usize];
+                    if address >= 0x0C00 && address <= 0x0FFF {
+                        data = self.name_table[1][(address & 0x03FF) as usize];
                     }
                 } else if c.borrow_mut().mirror() == Mirroring::Horizontal {
-                    if addr >= 0x0000 && addr <= 0x03FF {
-                        data = self.name_table[0][(addr & 0x03FF) as usize];
+                    if address >= 0x0000 && address <= 0x03FF {
+                        data = self.name_table[0][(address & 0x03FF) as usize];
                     }
-                    if addr >= 0x0400 && addr <= 0x07FF {
-                        data = self.name_table[0][(addr & 0x03FF) as usize];
+                    if address >= 0x0400 && address <= 0x07FF {
+                        data = self.name_table[0][(address & 0x03FF) as usize];
                     }
-                    if addr >= 0x0800 && addr <= 0x0BFF {
-                        data = self.name_table[1][(addr & 0x03FF) as usize];
+                    if address >= 0x0800 && address <= 0x0BFF {
+                        data = self.name_table[1][(address & 0x03FF) as usize];
                     }
-                    if addr >= 0x0C00 && addr <= 0x0FFF {
-                        data = self.name_table[1][(addr & 0x03FF) as usize];
+                    if address >= 0x0C00 && address <= 0x0FFF {
+                        data = self.name_table[1][(address & 0x03FF) as usize];
                     }
                 }
-            } else if addr >= 0x3F00 && addr <= 0x3FFF {
+            } else if address >= 0x3F00 && address <= 0x3FFF {
                 //Palette memory
-                addr &= 0x001F;
-                if addr == 0x0010 {
-                    addr = 0x0000
+                address &= 0x001F;
+                if address == 0x0010 {
+                    address = 0x0000
                 }
-                if addr == 0x0014 {
-                    addr = 0x0004
+                if address == 0x0014 {
+                    address = 0x0004
                 }
-                if addr == 0x0018 {
-                    addr = 0x0008
+                if address == 0x0018 {
+                    address = 0x0008
                 }
-                if addr == 0x001C {
-                    addr = 0x000C
+                if address == 0x001C {
+                    address = 0x000C
                 }
                 if self.mask.greyscale() == true {
-                    data = self.palette_table[addr as usize] & 0x30;
+                    data = self.palette_table[address as usize] & 0x30;
                 } else {
-                    data = self.palette_table[addr as usize] & 0x3F;
+                    data = self.palette_table[address as usize] & 0x3F;
                 }
             }
         }
@@ -366,61 +366,61 @@ impl PPU {
         return data;
     }
     #[allow(unused_comparisons)]
-    pub fn ppu_write(&mut self, mut addr: u16, data: u8) {
-        addr &= 0x3FFF;
+    pub fn ppu_write(&mut self, mut address: u16, data: u8) {
+        address &= 0x3FFF;
         if let Some(ref c) = self.cartridge {
-            if c.borrow_mut().ppu_write(addr, data) {
+            if c.borrow_mut().ppu_write(address, data) {
                 //Should always be false
-            } else if addr >= 0x0000 && addr <= 0x1FFF {
+            } else if address >= 0x0000 && address <= 0x1FFF {
                 //Pattern memory, usually a ROM however some games need to write to it
-                let first_index = ((addr & 0x1000) >> 12) as usize;
-                self.pattern_table[first_index][(addr & 0x0FFF) as usize] = data;
-            } else if addr >= 0x2000 && addr <= 0x3EFF {
+                let first_index = ((address & 0x1000) >> 12) as usize;
+                self.pattern_table[first_index][(address & 0x0FFF) as usize] = data;
+            } else if address >= 0x2000 && address <= 0x3EFF {
                 //Nametable memory
-                addr &= 0x0FFF;
+                address &= 0x0FFF;
                 if c.borrow_mut().mirror() == Mirroring::Vertical {
-                    if addr >= 0x0000 && addr <= 0x03FF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0000 && address <= 0x03FF {
+                        self.name_table[0][(address & 0x03FF) as usize] = data;
                     }
-                    if addr >= 0x0400 && addr <= 0x07FF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0400 && address <= 0x07FF {
+                        self.name_table[1][(address & 0x03FF) as usize] = data;
                     }
-                    if addr >= 0x0800 && addr <= 0x0BFF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0800 && address <= 0x0BFF {
+                        self.name_table[0][(address & 0x03FF) as usize] = data;
                     }
-                    if addr >= 0x0C00 && addr <= 0x0FFF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0C00 && address <= 0x0FFF {
+                        self.name_table[1][(address & 0x03FF) as usize] = data;
                     }
                 } else if c.borrow_mut().mirror() == Mirroring::Horizontal {
-                    if addr >= 0x0000 && addr <= 0x03FF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0000 && address <= 0x03FF {
+                        self.name_table[0][(address & 0x03FF) as usize] = data;
                     }
-                    if addr >= 0x0400 && addr <= 0x07FF {
-                        self.name_table[0][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0400 && address <= 0x07FF {
+                        self.name_table[0][(address & 0x03FF) as usize] = data;
                     }
-                    if addr >= 0x0800 && addr <= 0x0BFF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0800 && address <= 0x0BFF {
+                        self.name_table[1][(address & 0x03FF) as usize] = data;
                     }
-                    if addr >= 0x0C00 && addr <= 0x0FFF {
-                        self.name_table[1][(addr & 0x03FF) as usize] = data;
+                    if address >= 0x0C00 && address <= 0x0FFF {
+                        self.name_table[1][(address & 0x03FF) as usize] = data;
                     }
                 }
-            } else if addr >= 0x3F00 && addr <= 0x3FFF {
+            } else if address >= 0x3F00 && address <= 0x3FFF {
                 //Palette memory
-                addr = addr & 0x001F;
-                if addr == 0x0010 {
-                    addr = 0x0000
+                address = address & 0x001F;
+                if address == 0x0010 {
+                    address = 0x0000
                 }
-                if addr == 0x0014 {
-                    addr = 0x0004
+                if address == 0x0014 {
+                    address = 0x0004
                 }
-                if addr == 0x0018 {
-                    addr = 0x0008
+                if address == 0x0018 {
+                    address = 0x0008
                 }
-                if addr == 0x001C {
-                    addr = 0x000C
+                if address == 0x001C {
+                    address = 0x000C
                 }
-                self.palette_table[addr as usize] = data;
+                self.palette_table[address as usize] = data;
             }
         }
     }
@@ -434,9 +434,9 @@ impl PPU {
                 let offset: u16 = (tile_y * 256) + (tile_x * 16);
 
                 for row in 0..8 {
-                    let addr: u16 = index as u16 * 0x1000 + offset + row;
-                    let mut tile_ls = self.ppu_read(addr, false);
-                    let mut tile_ms = self.ppu_read(addr + 8, false);
+                    let address: u16 = index as u16 * 0x1000 + offset + row;
+                    let mut tile_ls = self.ppu_read(address, false);
+                    let mut tile_ms = self.ppu_read(address + 8, false);
 
                     for column in 0..8 {
                         let pixel = (tile_ls & 0x01) + (tile_ms & 0x01);
@@ -466,8 +466,8 @@ impl PPU {
     }
 
     pub fn get_colour(&mut self, palette: u8, pixel: u8) -> u8 {
-        let addr: u16 = 0x3F00 + ((palette << 2) as u16) + pixel as u16;
-        let i = self.ppu_read(addr, false);
+        let address: u16 = 0x3F00 + ((palette << 2) as u16) + pixel as u16;
+        let i = self.ppu_read(address, false);
         return i & 0x3F;
     }
 
@@ -485,56 +485,56 @@ impl PPU {
 
     fn scroll_x(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            if self.v_address_register.coarse_x() == 31 {
-                self.v_address_register.set_coarse_x(0);
-                self.v_address_register.0 ^= 0x0400;
+            if self.v_addressess_register.coarse_x() == 31 {
+                self.v_addressess_register.set_coarse_x(0);
+                self.v_addressess_register.0 ^= 0x0400;
             } else {
-                let nx = self.v_address_register.coarse_x();
-                self.v_address_register.set_coarse_x(nx + 1);
+                let nx = self.v_addressess_register.coarse_x();
+                self.v_addressess_register.set_coarse_x(nx + 1);
             }
         }
     }
     fn scroll_y(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            if self.v_address_register.fine_y() < 7 {
-                self.v_address_register
-                    .set_fine_y(self.v_address_register.fine_y() + 1);
+            if self.v_addressess_register.fine_y() < 7 {
+                self.v_addressess_register
+                    .set_fine_y(self.v_addressess_register.fine_y() + 1);
             } else {
-                self.v_address_register.set_fine_y(0);
-                if self.v_address_register.coarse_y() == 29 {
-                    self.v_address_register.set_coarse_y(0);
-                    self.v_address_register.0 ^= 0x0800; // Switch vertical nametable
-                } else if self.v_address_register.coarse_y() == 31 {
-                    self.v_address_register.set_coarse_y(0);
+                self.v_addressess_register.set_fine_y(0);
+                if self.v_addressess_register.coarse_y() == 29 {
+                    self.v_addressess_register.set_coarse_y(0);
+                    self.v_addressess_register.0 ^= 0x0800; // Switch vertical nametable
+                } else if self.v_addressess_register.coarse_y() == 31 {
+                    self.v_addressess_register.set_coarse_y(0);
                 } else {
-                    self.v_address_register
-                        .set_coarse_y(self.v_address_register.coarse_y() + 1);
+                    self.v_addressess_register
+                        .set_coarse_y(self.v_addressess_register.coarse_y() + 1);
                 }
             }
         }
     }
     fn reset_x(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            self.v_address_register
-                .set_nametable_x(self.t_address_register.nametable_x());
-            self.v_address_register
-                .set_coarse_x(self.t_address_register.coarse_x());
+            self.v_addressess_register
+                .set_nametable_x(self.t_addressess_register.nametable_x());
+            self.v_addressess_register
+                .set_coarse_x(self.t_addressess_register.coarse_x());
         }
     }
     fn reset_y(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            self.v_address_register
-                .set_fine_y(self.t_address_register.fine_y());
-            self.v_address_register
-                .set_nametable_y(self.t_address_register.nametable_y());
-            self.v_address_register
-                .set_coarse_y(self.t_address_register.coarse_y());
+            self.v_addressess_register
+                .set_fine_y(self.t_addressess_register.fine_y());
+            self.v_addressess_register
+                .set_nametable_y(self.t_addressess_register.nametable_y());
+            self.v_addressess_register
+                .set_coarse_y(self.t_addressess_register.coarse_y());
         }
     }
 
     pub fn reset(&mut self) {
         self.fine_x = 0x00;
-        self.address_latch = 0x00;
+        self.addressess_latch = 0x00;
         self.data_buffer = 0x00;
         self.scanline = 0;
         self.cycle = 0;
@@ -549,8 +549,8 @@ impl PPU {
         self.status = Status(0);
         self.mask = Mask(0);
         self.controller = Controller(0);
-        self.v_address_register = Address(0);
-        self.t_address_register = Address(0);
+        self.v_addressess_register = Address(0);
+        self.t_addressess_register = Address(0);
     }
     fn load_bg_shifters(&mut self) {
         self.bg_shifter_lsb = (self.bg_shifter_lsb & 0xFF00) | (self.bg_tile_lsb as u16);
@@ -597,8 +597,8 @@ impl PPU {
         self.oam_sprites.clear();
         self.sprite_zero_hit = false;
         for i in 0..64 {
-            let addr = i * 4;
-            let sprite = Sprite::new(&self.oam_ram[addr..addr + 4]);
+            let address = i * 4;
+            let sprite = Sprite::new(&self.oam_ram[address..address + 4]);
 
             let left = self.scanline as usize >= sprite.y as usize;
 
@@ -614,7 +614,10 @@ impl PPU {
             if left && right
             {
                 if self.oam_sprites.len() == 8 {
-                    self.status.set_sprite_overflow(true);
+                    if self.mask.show_background() || self.mask.show_sprites()
+                    {
+                        self.status.set_sprite_overflow(true);
+                    }
                     break;
                 }
                 if i == 0
@@ -660,23 +663,23 @@ impl PPU {
                 match (self.cycle - 1) % 8 {
                     0 => {
                         self.load_bg_shifters();
-                        let addr = 0x2000 | (self.v_address_register.get() & 0x0FFF);
-                        self.bg_tile_id = self.ppu_read(addr, false); //Correct
+                        let address = 0x2000 | (self.v_addressess_register.get() & 0x0FFF);
+                        self.bg_tile_id = self.ppu_read(address, false); //Correct
                     }
                     2 => {
                         self.bg_tile_attr = self.ppu_read(
                             0x23C0
-                                | ((self.v_address_register.nametable_y() as u16) << 11)
-                                | ((self.v_address_register.nametable_x() as u16) << 10)
-                                | (((self.v_address_register.coarse_y()) >> 2) << 3) as u16
-                                | ((self.v_address_register.coarse_x()) >> 2) as u16,
+                                | ((self.v_addressess_register.nametable_y() as u16) << 11)
+                                | ((self.v_addressess_register.nametable_x() as u16) << 10)
+                                | (((self.v_addressess_register.coarse_y()) >> 2) << 3) as u16
+                                | ((self.v_addressess_register.coarse_x()) >> 2) as u16,
                             false,
                         );
 
-                        if (self.v_address_register.coarse_y() & 0x02) > 0 {
+                        if (self.v_addressess_register.coarse_y() & 0x02) > 0 {
                             self.bg_tile_attr >>= 4;
                         }
-                        if (self.v_address_register.coarse_x() & 0x02) > 0 {
+                        if (self.v_addressess_register.coarse_x() & 0x02) > 0 {
                             self.bg_tile_attr >>= 2;
                         }
                         self.bg_tile_attr &= 0x03;
@@ -685,7 +688,7 @@ impl PPU {
                         self.bg_tile_lsb = self.ppu_read(
                             ((self.controller.background_table() as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
-                                + ((self.v_address_register.fine_y() as u16) + 0),
+                                + ((self.v_addressess_register.fine_y() as u16) + 0),
                             false,
                         );
                     }
@@ -693,7 +696,7 @@ impl PPU {
                         self.bg_tile_msb = self.ppu_read(
                             ((self.controller.background_table() as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
-                                + ((self.v_address_register.fine_y() as u16) + 8),
+                                + ((self.v_addressess_register.fine_y() as u16) + 8),
                             false,
                         );
                     }
@@ -712,7 +715,7 @@ impl PPU {
             }
             if self.cycle == 338 || self.cycle == 340 {
                 self.bg_tile_id =
-                    self.ppu_read(0x2000 | (self.v_address_register.get() & 0x0FFF), false);
+                    self.ppu_read(0x2000 | (self.v_addressess_register.get() & 0x0FFF), false);
             }
             if self.scanline == -1 && self.cycle >= 280 && self.cycle < 305 {
                 self.reset_y();
@@ -734,8 +737,8 @@ impl PPU {
                     let mut sprite_bits_low: u8 = 0;
                     let mut sprite_bits_high: u8 = 0;
 
-                    let mut sprite_addr_low: u16 = 0;
-                    let mut sprite_addr_high: u16 = 0;
+                    let mut sprite_address_low: u16 = 0;
+                    let mut sprite_address_high: u16 = 0;
 
                     if !self.controller.sprite_size(){
                         //8x8
@@ -745,7 +748,7 @@ impl PPU {
                             let high = (self.oam_sprites[i].id as u16) << 4;
                             let sl = (self.scanline as u16) - self.oam_sprites[i].y as u16;
 
-                            sprite_addr_low = low | high | sl;
+                            sprite_address_low = low | high | sl;
                         }
                         else    //Sprite is flipped
                         {
@@ -753,7 +756,7 @@ impl PPU {
                             let high = (self.oam_sprites[i].id as u16) << 4;
                             let sl = (self.scanline as u16) - self.oam_sprites[i].y as u16;
 
-                            sprite_addr_low = low | high | 7 - sl;
+                            sprite_address_low = low | high | 7 - sl;
                         }
                     }
                     else
@@ -767,7 +770,7 @@ impl PPU {
                                 let high = ((self.oam_sprites[i].id as u16) & 0xFE) << 4;
                                 let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
 
-                                sprite_addr_low = low | high | sl;
+                                sprite_address_low = low | high | sl;
 
                             }else
                             {
@@ -776,7 +779,7 @@ impl PPU {
                                 let high = (((self.oam_sprites[i].id as u16) & 0xFE) + 1) << 4;
                                 let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
 
-                                sprite_addr_low = low | high | sl;
+                                sprite_address_low = low | high | sl;
                             }
                         }
                         else    //Sprite is flipped
@@ -787,7 +790,7 @@ impl PPU {
                                 let high = ((self.oam_sprites[i].id as u16) & 0xFE) << 4;
                                 let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
                                
-                                sprite_addr_low = low | high | 7 - sl;
+                                sprite_address_low = low | high | 7 - sl;
 
                             }else
                             {
@@ -796,14 +799,14 @@ impl PPU {
                                 let high = (((self.oam_sprites[i].id as u16) & 0xFE)+ 1) << 4;
                                 let sl = ((self.scanline as u16) - self.oam_sprites[i].y as u16) & 0x07;
 
-                                sprite_addr_low = low | high | 7 - sl; //KEEP AN EYE ON THIS WITH ABOVE & OPERATOR
+                                sprite_address_low = low | high | 7 - sl; //KEEP AN EYE ON THIS WITH ABOVE & OPERATOR
                             }
                         }
                     }
 
-                    sprite_addr_high = sprite_addr_low + 8;
-                    sprite_bits_low = self.ppu_read(sprite_addr_low, false);
-                    sprite_bits_high = self.ppu_read(sprite_addr_high, false);
+                    sprite_address_high = sprite_address_low + 8;
+                    sprite_bits_low = self.ppu_read(sprite_address_low, false);
+                    sprite_bits_high = self.ppu_read(sprite_address_high, false);
 
                     if (self.oam_sprites[i].attribute & 0x40) > 0{
                         sprite_bits_low = PPU::reverse_bits(sprite_bits_low);

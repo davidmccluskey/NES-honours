@@ -16,60 +16,58 @@ impl Mapper0 {
 
 #[allow(unused_comparisons)]
 impl Mapper for Mapper0 {
-    fn cpu_mapper_read(&mut self, addr: u16, mapped_addr: &mut u32) -> bool {
-        if addr >= 0x8000 && addr <= 0xFFFF {
+    fn cpu_mapper_read(&mut self, address: u16, mapped_address: &mut u32, data: &mut u8) -> bool {
+        if address >= 0x8000 && address <= 0xFFFF {
             if self.n_prg_banks > 1 
             {
-                let m_addr = (addr & 0x7FFF) as u32;
-                *mapped_addr = m_addr;
+                let m_address = (address & 0x7FFF) as u32;
+                *mapped_address = m_address;
             }else
             {
-                let m_addr = (addr & 0x3FFF) as u32;
-                *mapped_addr = m_addr;
+                let m_address = (address & 0x3FFF) as u32;
+                *mapped_address = m_address;
             }
             return true;
         }
         return false;
     }
-    fn cpu_mapper_write(&mut self, addr: u16, mapped_addr: &mut u32) -> bool {
-        if addr >= 0x8000 && addr <= 0xFFFF {
+    fn cpu_mapper_write(&mut self, address: u16, mapped_address: &mut u32, data: &mut u8) -> bool {
+        if address >= 0x8000 && address <= 0xFFFF {
             if self.n_prg_banks > 1 
             {
-                let m_addr = (addr & 0x7FFF) as u32;
-                *mapped_addr = m_addr;
+                let m_address = (address & 0x7FFF) as u32;
+                *mapped_address = m_address;
             }else
             {
-                let m_addr = (addr & 0x3FFF) as u32;
-                *mapped_addr = m_addr;
+                let m_address = (address & 0x3FFF) as u32;
+                *mapped_address = m_address;
             }
             return true;
         }
         return false;
     }
 
-    fn ppu_mapper_read(&mut self, addr: u16, mapped_addr: &mut u32) -> bool {
-        if addr >= 0x0000 && addr <= 0x1FFF {
-            *mapped_addr = addr as u32;
+    fn ppu_mapper_read(&mut self, address: u16, mapped_address: &mut u32) -> bool {
+        if address >= 0x0000 && address <= 0x1FFF {
+            *mapped_address = address as u32;
             return true;
         }
         return false;
     }
-    fn ppu_mapper_write(&mut self, addr: u16, mapped_addr: &mut u32) -> bool {
-        if addr >= 0x0000 && addr <= 0x1FFF {
+    fn ppu_mapper_write(&mut self, address: u16, mapped_address: &mut u32) -> bool {
+        if address >= 0x0000 && address <= 0x1FFF {
             if self.n_chr_banks == 0 {
-                *mapped_addr = addr as u32;
+                *mapped_address = address as u32;
                 return true;
             }
         }
         return false;
     }
-
-    fn mirror(&mut self) -> Mirroring{
-        return Mirroring::Hardware;
-    }
-
     fn reset(&mut self){
 
+    }
+    fn mirror(&mut self) -> Mirroring{
+        return Mirroring::Hardware;
     }
 }
 

@@ -16,7 +16,7 @@ pub struct Bus {
   pub irq_required: bool,
   //DMA handling
   pub dma_page: u8,
-  pub dma_addr: u8,
+  pub dma_address: u8,
   pub dma_data: u8,
   pub dma_transfer: bool,
   pub dma_buffer: bool,
@@ -37,7 +37,7 @@ impl Bus {
       nmi_required: false,
       irq_required: false,
       dma_page: 0x00,
-      dma_addr: 0x00,
+      dma_address: 0x00,
       dma_data: 0x00,
       dma_transfer: false,
       dma_buffer: true,
@@ -46,46 +46,46 @@ impl Bus {
 
   //Function to write to RAM
   #[allow(unused_comparisons)]
-  pub fn cpu_write(&mut self, addr: u16, data: u8) {
+  pub fn cpu_write(&mut self, address: u16, data: &mut u8) {
     if let Some(ref c) = self.cartridge {
-      if c.borrow_mut().cpu_write(addr, data) {
-      } else if addr >= 0x0000 && addr <= 0x1FFF {
-        self.ram[(addr & 0x07FF) as usize] = data;
-      } else if addr >= 0x2000 && addr <= 0x3FFF {
-        self.ppu.cpu_write(addr & 0x0007, data);
-      } else if (addr >= 0x4000 && addr <= 0x4013) || addr == 0x4015 || addr == 0x4017 {
-        self.apu.cpu_write(addr, data);
-      } else if addr == 0x4014 {
-        self.dma_page = data;
-        self.dma_addr = 0;
+      if c.borrow_mut().cpu_write(address, data) {
+      } else if address >= 0x0000 && address <= 0x1FFF {
+        self.ram[(address & 0x07FF) as usize] = *data;
+      } else if address >= 0x2000 && address <= 0x3FFF {
+        self.ppu.cpu_write(address & 0x0007, *data);
+      } else if (address >= 0x4000 && address <= 0x4013) || address == 0x4015 || address == 0x4017 {
+        self.apu.cpu_write(address, *data);
+      } else if address == 0x4014 {
+        self.dma_page = *data;
+        self.dma_address = 0;
         self.dma_transfer = true;
-      } else if addr >= 0x4016 && addr <= 0x4017 {
+      } else if address == 0x4016 || address == 0x4017 {
         self.controller_state[0] = self.controller[0];
       }
     }else{
-      self.ram[(addr & 0x07FF) as usize] = data;
+      self.ram[(address & 0x07FF) as usize] = *data;
     }
   }
 
   //Function to read from RAM
   #[allow(unused_comparisons)]
-  pub fn cpu_read(&mut self, addr: u16, read_only: bool) -> u8 {
+  pub fn cpu_read(&mut self, address: u16, read_only: bool) -> u8 {
     let mut data: u8 = 0x00;
 
     if let Some(ref c) = self.cartridge {
-      if c.borrow_mut().cpu_read(addr, &mut data) {
-      } else if addr >= 0x0000 && addr <= 0x1FFF 
+      if c.borrow_mut().cpu_read(address, &mut data) {
+      } else if address >= 0x0000 && address <= 0x1FFF 
       {
-        data = self.ram[(addr & 0x07FF) as usize];
-      } else if addr >= 0x2000 && addr <= 0x3FFF {
-        data = self.ppu.cpu_read(addr & 0x0007, read_only);
-      } else if addr >= 0x4016 && addr <= 0x4017 {
+        data = self.ram[(address & 0x07FF) as usize];
+      } else if address >= 0x2000 && address <= 0x3FFF {
+        data = self.ppu.cpu_read(address & 0x0007, read_only);
+      } else if address >= 0x4016 && address <= 0x4017 {
         data = ((self.controller_state[0] & 0x80) > 0) as u8;
         self.controller_state[0] <<= 1;
       }
     }else
     {
-      data = self.ram[(addr & 0x07FF) as usize];
+      data = self.ram[(address & 0x07FF) as usize];
     }
 
     return data;

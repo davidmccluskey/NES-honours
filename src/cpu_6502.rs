@@ -132,7 +132,7 @@ impl CPU6502 {
     }
 
     pub fn write(&mut self, addr: u16, data: &mut u8) {
-        self.bus.cpu_write(addr, *data);
+        self.bus.cpu_write(addr, data);
     }
 
     // Reset Interrupt

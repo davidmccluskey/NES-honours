@@ -609,14 +609,14 @@ fn clock_nes(global_nes: &mut cpu_6502::CPU6502){
             } else {
                 if clock_count % 2 == 0 {
                     let page = (global_nes.bus.dma_page as u16) << 8;
-                    let addr = global_nes.bus.dma_addr as u16;
-                    global_nes.bus.dma_data = global_nes.bus.cpu_read(page | addr, false);
+                    let address = global_nes.bus.dma_address as u16;
+                    global_nes.bus.dma_data = global_nes.bus.cpu_read(page | address, false);
                 } else {
-                    global_nes.bus.ppu.oam_ram[global_nes.bus.dma_addr as usize] = global_nes.bus.dma_data;
-                    if global_nes.bus.dma_addr != 255 {
-                        global_nes.bus.dma_addr += 1;
+                    global_nes.bus.ppu.oam_ram[global_nes.bus.dma_address as usize] = global_nes.bus.dma_data;
+                    if global_nes.bus.dma_address != 255 {
+                        global_nes.bus.dma_address += 1;
                     } else {
-                        global_nes.bus.dma_addr = 0x00;
+                        global_nes.bus.dma_address = 0x00;
                         global_nes.bus.dma_transfer = false;
                         global_nes.bus.dma_buffer = true;
                     }

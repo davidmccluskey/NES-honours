@@ -127,8 +127,12 @@ impl Cartridge {
                 cartridge_header.prg_rom_pages,
                 cartridge_header.chr_rom_pages,
             )),
-            //1 => Box::new(Mapper1::new()),
-           // 2 => Box::new(Mapper1::new()),
+            1 => Box::new(Mapper1::new(               
+                cartridge_header.prg_rom_pages, 
+                cartridge_header.chr_rom_pages)),
+           2 => Box::new(Mapper2::new(  
+               cartridge_header.prg_rom_pages, 
+               cartridge_header.chr_rom_pages)),
             n => panic!("Mapper {} not implemented", n),
         };
 
@@ -153,23 +157,40 @@ impl Cartridge {
     pub fn reset(&mut self){
         self.mapper.reset();
     }
-    pub fn cpu_write(&mut self, addr: u16, data: u8) -> bool {
+    pub fn cpu_write(&mut self, addr: u16, data: &mut u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_mapper_write(addr, &mut mapped_addr){
-            self.vec_prg_memory[mapped_addr as usize] = data;
-            return true;
-        }else{
-            return false;
-        }
+        if self.mapper.cpu_mapper_write(addr, &mut mapped_addr, data){   
+                if mapped_addr == 0xFFFFFFFF
+                {
+                    return true;
+                }
+                else
+                {
+                    self.vec_prg_memory[mapped_addr as usize] = *data;
+                }
+                return true;
+            }
+            else{
+                return false;
+            }
     }
 
     pub fn cpu_read(&mut self, addr: u16, data: &mut u8) -> bool {
         let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_mapper_read(addr, &mut mapped_addr){
-            *data = self.vec_prg_memory[mapped_addr as usize];
+        if self.mapper.cpu_mapper_read(addr, &mut mapped_addr, data){
+            if mapped_addr == 0xFFFFFFFF
+            {
+                return true;
+            }
+            else
+            {
+                *data = self.vec_prg_memory[mapped_addr as usize];
+            }
             return true;
         }
-        return false;
+        else{
+            return false;
+        }
     }
 
     pub fn ppu_read(&mut self, addr: u16, data: &mut u8) -> bool {
