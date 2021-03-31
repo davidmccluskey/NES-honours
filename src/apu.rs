@@ -251,7 +251,7 @@ impl APU {
     fn clock_zero(&mut self) -> Frame {
         match self.counter {
             7460 => Frame::Quarter,
-            14916 => Frame::Half,
+            14915 => Frame::Half,
             22374 => Frame::Quarter,
             29831 => {
                 if self.irq 

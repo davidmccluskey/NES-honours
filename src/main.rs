@@ -50,14 +50,14 @@ fn validate_rom() -> cartridge::Cartridge
 {
     use std::io::{stdin};
     print!("{}[2J", 27 as char);
-    println!("Please enter a ROM path: ");
     loop
     {
+        println!("Please enter a ROM path: ");
         let mut rom = String::new();
         stdin().read_line(&mut rom).unwrap().to_string();
         rom.truncate(rom.len() - 1);
 
-        if rom == "/Users/multivac/NES/source/src/roms/cpu.nes".to_string()
+        if rom == "/Users/multivac/NES/source/src/roms/tests/apu/".to_string()
         {
             println!("valid");
         }
