@@ -73,7 +73,8 @@ impl Bus {
     let mut data: u8 = 0x00;
 
     if let Some(ref c) = self.cartridge {
-      if c.borrow_mut().cpu_read(address, &mut data) {
+      if c.borrow_mut().cpu_read(address, &mut data)
+      {
       } else if address >= 0x0000 && address <= 0x1FFF 
       {
         data = self.ram[(address & 0x07FF) as usize];

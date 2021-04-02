@@ -50,9 +50,6 @@ pub struct APU {
     pulse_1: PULSE,
     triangle: TRIANGLE,
     noise: NOISE,
-    filter_high_0: FILTER,
-    filter_high_1: FILTER,
-    filter_low: FILTER,
     pub dmc: DMC,
     global_time: u32,
 
@@ -71,10 +68,6 @@ impl APU {
             pulse_1: PULSE::new(true),
             triangle: TRIANGLE::new(),
             noise: NOISE::new(),
-
-            filter_high_0: FILTER::new_high(90.0),
-            filter_high_1: FILTER::new_high(440.0),
-            filter_low: FILTER::new_low(14000.0),
 
             dmc: DMC::new(),
             global_time: 0,
@@ -339,9 +332,7 @@ impl APU {
 
         let mut output = (pulse_out + tnd_out) * 65535.0;
 
-        output = self.filter_high_0.clock(output);
-        output = self.filter_high_1.clock(output);
-        output = self.filter_low.clock(output);
+
 
         return output as i16;
     }
@@ -673,51 +664,6 @@ impl NOISE {
 
     pub fn clock_half(&mut self) {
         self.length_counter.clock();
-    }
-}
-
-pub struct FILTER {
-    previous_x: f64,
-    previous_y: f64,
-    a: f64,
-    b: f64,
-    c: f64,
-}
-
-impl FILTER {
-    pub fn new_high(cutoff: f64) -> Self {
-        let form = 44100.0 / PI / cutoff;
-        let a0i = 1.0 / (1.0 + form);
-
-        FILTER {
-            previous_x: 0.0,
-            previous_y: 0.0,
-            a: form * a0i,
-            b: -form * a0i,
-            c: (1.0 - form) * a0i,
-        }
-    }
-
-    pub fn new_low(cutoff: f64) -> Self 
-    {
-        let form = 44100.0 / PI / cutoff;
-        let val = 1.0 / (1.0 + form);
-
-        FILTER {
-            a: val,
-            b: val,
-            c: (1.0 - form) * val,
-            previous_x: 0.0,
-            previous_y: 0.0,
-        }
-    }
-
-    pub fn clock(&mut self, x: f64) -> f64 
-    {
-        let y = self.a * x + self.b * self.previous_x - self.c * self.previous_y;
-        self.previous_y = y;
-        self.previous_x = x;
-        return y;
     }
 }
 

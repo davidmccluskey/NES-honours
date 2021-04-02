@@ -111,7 +111,7 @@ impl Mapper for Mapper1 {
                         match pattern {
                             2 => {self.mirror = Mirroring::Vertical},
                             3 => {self.mirror = Mirroring::Hardware},
-                            _ => {panic!("Bad address")},
+                            _ => {},
                         }
                     }
                     else if target == 1
