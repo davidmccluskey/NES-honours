@@ -328,8 +328,8 @@ impl APU {
         let dmc = self.dmc.output as f64;
 
         let pulse_out = 95.88 / ((8218.0 / (pulse_0 + pulse_1)) + 100.0);
-        let tnd_out = 159.79 / ((1.0 / (triangle / 8227.0 + noise / 12241.0 + dmc / 22638.0)) + 100.0);
-
+        let tnd_out = 159.79 / ((1.0 / (triangle / 8227.0 + noise / 12241.0 + 0.0 / 22638.0)) + 100.0);
+       //let tnd_out = 159.79 / ((1.0 / (0.0 / 8227.0 + 0.0 / 12241.0 + dmc / 22638.0)) + 100.0);
         let mut output = (pulse_out + tnd_out) * 65535.0;
 
 
