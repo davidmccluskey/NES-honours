@@ -50,7 +50,6 @@ pub struct APU {
     pulse_1: PULSE,
     triangle: TRIANGLE,
     noise: NOISE,
-    pub dmc: DMC,
     global_time: u32,
 
     pub counter: i64,
@@ -68,8 +67,6 @@ impl APU {
             pulse_1: PULSE::new(true),
             triangle: TRIANGLE::new(),
             noise: NOISE::new(),
-
-            dmc: DMC::new(),
             global_time: 0,
             samples: Vec::new(),
 
@@ -81,8 +78,8 @@ impl APU {
             counter_mode: CounterMode::Zero,
         }
     }
-    pub fn cpu_write(&mut self, addr: u16, data: u8) {
-        match addr {
+    pub fn cpu_write(&mut self, address: u16, data: u8) {
+        match address {
             0x4000 => {
                 self.pulse_0.duty_cycle = data as usize >> 6;
                 self.pulse_0.envelope.controller = EnvelopeRegister(data);
@@ -138,19 +135,13 @@ impl APU {
 
             }
             0x4010 => {
-                self.dmc.interrupt_enabled = data & 0x80 != 0;
-                self.dmc.interrupt_flag &= self.dmc.interrupt_enabled;
-                self.dmc.looping = data & 0x40 != 0;
-                self.dmc.period = PERIODS[data as usize & 0x0F];
+
             }
             0x4011 => {
-                self.dmc.output = data & 0x7F;
             }
             0x4012 => {
-                self.dmc.sample_address = 0xC000 + (data as u16 * 64);
             }
             0x4013 => {
-                self.dmc.sample_length = 1 + (data as u16 * 16);
             }  
             0x400A => 
             {
@@ -184,7 +175,6 @@ impl APU {
                 self.pulse_1.length_counter.enable(data & 0x2 != 0);
                 self.triangle.length_counter.enable(data & 0x3 != 0);
                 self.noise.length_counter.enable(data & 0x4 != 0);
-                self.dmc.enable(data & 0x10 != 0);
             }
             0x4017 => {
                 self.irq = data & 0x40 == 0;
@@ -219,7 +209,6 @@ impl APU {
                 self.pulse_0.sequencer.clock(true);
                 self.pulse_1.sequencer.clock(true);
                 self.noise.clock();
-                self.dmc.clock();
             }
             let frame = match self.counter_mode {
                 CounterMode::Zero => self.clock_zero(),
@@ -325,7 +314,6 @@ impl APU {
         let pulse_1 = self.pulse_1.sample() as f64;
         let triangle = self.triangle.sample() as f64;
         let noise = self.noise.sample() as f64;
-        let dmc = self.dmc.output as f64;
 
         let pulse_out = 95.88 / ((8218.0 / (pulse_0 + pulse_1)) + 100.0);
         let tnd_out = 159.79 / ((1.0 / (triangle / 8227.0 + noise / 12241.0 + 0.0 / 22638.0)) + 100.0);
@@ -666,110 +654,6 @@ impl NOISE {
         self.length_counter.clock();
     }
 }
-
-
-pub struct DMC {
-    cartridge: Option<Rc<RefCell<Cartridge>>>,
-    enabled: bool,
-    output: u8,
-    shift: u8,
-    bits: u8,
-    period: u8,
-    counter: u8,
-    looping: bool,
-    sample_address: u16,
-    sample_length: u16,
-    current_address: u16,
-    current_length: u16,
-    pub interrupt_enabled: bool,
-    pub interrupt_flag: bool,
-}
-
-impl DMC {
-    pub fn new() -> DMC {
-        DMC {
-            cartridge: None,
-            enabled: false,
-            output: 0,
-            shift: 0,
-            bits: 0,
-            period: 0,
-            counter: 0,
-            looping: false,
-            sample_address: 0,
-            sample_length: 0,
-            current_address: 0,
-            current_length: 0,
-            interrupt_enabled: false,
-            interrupt_flag: false,
-        }
-    }
-
-    pub fn enable(&mut self, value: bool) {
-        self.interrupt_flag = false;
-        self.enabled = value;
-
-        if !self.enabled {
-            self.current_length = 0;
-        } else {
-            if self.current_length == 0 {
-                self.current_address = self.sample_address;
-                self.current_length = self.sample_length;
-            }
-        }
-    }
-
-    pub fn connect_cartridge(&mut self, cartridge: Rc<RefCell<Cartridge>>) {
-        self.cartridge = Some(cartridge);
-    }
-
-    fn clock(&mut self) {
-        if self.enabled
-        {
-            if self.current_length > 0 && self.bits == 0 {
-                let addr = self.current_address;
-                if let Some(ref c) = self.cartridge 
-                {
-                    let mut data: u8 = 0;
-                    c.borrow_mut().cpu_read(addr, &mut data);
-                    self.shift = data; 
-                }
-    
-                self.bits = 8;
-                self.current_address = self.current_address.wrapping_add(1);
-                if self.current_address == 0 {
-                    self.current_address = 0x8000;
-                }
-                self.current_length -= 1;
-                if self.current_length == 0 && self.looping {
-                    self.current_address = self.sample_address;
-                    self.current_length = self.sample_length;
-                } else if self.current_length == 0 && self.interrupt_enabled {
-                    self.interrupt_flag = true;
-                }
-            }
-            if self.counter == 0 {
-                self.counter = self.period - 1;
-                if self.bits > 0 {
-                    if self.shift & 1 == 1 {
-                        if self.output <= 125 {
-                            self.output += 2;
-                        }
-                    } else {
-                        if self.output >= 2 {
-                            self.output -= 2;
-                        }
-                    }
-                    self.shift >>= 1;
-                    self.bits -= 1;
-                }
-            } else {
-                self.counter -= 1;
-            }
-        }
-    }
-}
-
 
 
 

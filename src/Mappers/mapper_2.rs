@@ -22,22 +22,22 @@ impl Mapper2 {
 
 #[allow(unused_comparisons)]
 impl Mapper for Mapper2 {
-    fn cpu_mapper_read(&mut self, address: u16, mapped_address: &mut u32, data: &mut u8) -> bool {
+    fn cpu_mapper_read(&mut self, address: u16, mapped_address: &mut i32, data: &mut u8) -> bool {
 
         if address >= 0x8000 && address <= 0xBFFF
         {
-            *mapped_address = (self.prg_bank_low as u32 * 0x4000) + (address as u32 & 0x3FFF);
+            *mapped_address = (self.prg_bank_low as i32 * 0x4000) + (address as i32 & 0x3FFF);
             return true;
         }
     
         if address >= 0xC000 && address <= 0xFFFF
         {
-            *mapped_address = (self.prg_bank_high as u32 * 0x4000) + (address as u32 & 0x3FFF);
+            *mapped_address = (self.prg_bank_high as i32 * 0x4000) + (address as i32 & 0x3FFF);
             return true;
         }
         return false;
     }
-    fn cpu_mapper_write(&mut self, address: u16, mapped_address: &mut u32, data: &mut u8) -> bool {
+    fn cpu_mapper_write(&mut self, address: u16, mapped_address: &mut i32, data: &mut u8) -> bool {
         
         if address >= 0x8000 && address <= 0xFFFF
         {

@@ -83,10 +83,10 @@ pub struct PPU {
     controller: Controller,
     mask: Mask,
     status: Status,
-    v_addressess_register: Address,
-    t_addressess_register: Address,
+    v_address_register: Address,
+    t_address_register: Address,
     fine_x: u8,
-    addressess_latch: u8,
+    address_latch: u8,
     data_buffer: u8,
     pub nmi_enabled: bool,
     bg_tile_id: u8,
@@ -146,11 +146,11 @@ impl PPU {
             mask: Mask(0),
             status: Status(0),
 
-            v_addressess_register: Address(0),
-            t_addressess_register: Address(0),
+            v_address_register: Address(0),
+            t_address_register: Address(0),
 
             fine_x: 0,
-            addressess_latch: 0,
+            address_latch: 0,
             data_buffer: 0,
             nmi_enabled: false,
             bg_tile_id: 0,
@@ -182,7 +182,7 @@ impl PPU {
                 //Status
                 data = (self.status.get() & 0xE0) | (self.data_buffer & 0x1F);
                 self.status.set_vblank(false);
-                self.addressess_latch = 0;
+                self.address_latch = 0;
             }
             0x0003 => (), //OAM Address
             0x0004 => {
@@ -194,17 +194,17 @@ impl PPU {
             0x0007 => {
                 //PPU data
                 data = self.data_buffer;
-                self.data_buffer = self.ppu_read(self.v_addressess_register.get(), read_only);
+                self.data_buffer = self.ppu_read(self.v_address_register.get(), read_only);
 
-                if self.v_addressess_register.get() >= 0x3F00 {
+                if self.v_address_register.get() >= 0x3F00 {
                     data = self.data_buffer;
                 }
                 if self.controller.increment() == true {
-                    self.v_addressess_register =
-                        Address(self.v_addressess_register.get().wrapping_add(32));
+                    self.v_address_register =
+                        Address(self.v_address_register.get().wrapping_add(32));
                 } else {
-                    self.v_addressess_register =
-                        Address(self.v_addressess_register.get().wrapping_add(1));
+                    self.v_address_register =
+                        Address(self.v_address_register.get().wrapping_add(1));
                 }
             }
             _ => (), //required by rust
@@ -216,9 +216,9 @@ impl PPU {
             0x0000 => {
                 //Control
                 self.controller = Controller(data);
-                self.t_addressess_register
+                self.t_address_register
                     .set_nametable_x(self.controller.nametable_x());
-                self.t_addressess_register
+                self.t_address_register
                     .set_nametable_y(self.controller.nametable_y());
             }
             0x0001 => {
@@ -238,40 +238,40 @@ impl PPU {
             }
             0x0005 => {
                 //Scroll
-                if self.addressess_latch == 0 {
+                if self.address_latch == 0 {
                     self.fine_x = data & 0x07;
-                    self.t_addressess_register.set_coarse_x(data >> 3);
-                    self.addressess_latch = 1;
+                    self.t_address_register.set_coarse_x(data >> 3);
+                    self.address_latch = 1;
                 } else {
-                    self.t_addressess_register.set_fine_y(data & 0x07);
-                    self.t_addressess_register.set_coarse_y(data >> 3);
-                    self.addressess_latch = 0;
+                    self.t_address_register.set_fine_y(data & 0x07);
+                    self.t_address_register.set_coarse_y(data >> 3);
+                    self.address_latch = 0;
                 }
             }
             0x0006 => {
                 //PPU Address
-                if self.addressess_latch == 0 {
+                if self.address_latch == 0 {
                     let t_address =
-                        (((data & 0x3F) as u16) << 8) | (self.t_addressess_register.get() & 0x00FF);
-                    self.t_addressess_register = Address(t_address);
-                    self.addressess_latch = 1;
+                        (((data & 0x3F) as u16) << 8) | (self.t_address_register.get() & 0x00FF);
+                    self.t_address_register = Address(t_address);
+                    self.address_latch = 1;
                 } else {
-                    let t_address = (self.t_addressess_register.get() & 0xFF00) | data as u16;
-                    self.t_addressess_register = Address(t_address);
-                    self.v_addressess_register = self.t_addressess_register;
-                    self.addressess_latch = 0;
+                    let t_address = (self.t_address_register.get() & 0xFF00) | data as u16;
+                    self.t_address_register = Address(t_address);
+                    self.v_address_register = self.t_address_register;
+                    self.address_latch = 0;
                 }
             }
             0x0007 => {
                 //PPU Data
-                self.ppu_write(self.v_addressess_register.get(), data);
+                self.ppu_write(self.v_address_register.get(), data);
 
                 if self.controller.increment() == true {
-                    self.v_addressess_register =
-                        Address(self.v_addressess_register.get().wrapping_add(32));
+                    self.v_address_register =
+                        Address(self.v_address_register.get().wrapping_add(32));
                 } else {
-                    self.v_addressess_register =
-                        Address(self.v_addressess_register.get().wrapping_add(1));
+                    self.v_address_register =
+                        Address(self.v_address_register.get().wrapping_add(1));
                 }
             }
             _ => (), //required by rust
@@ -485,56 +485,56 @@ impl PPU {
 
     fn scroll_x(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            if self.v_addressess_register.coarse_x() == 31 {
-                self.v_addressess_register.set_coarse_x(0);
-                self.v_addressess_register.0 ^= 0x0400;
+            if self.v_address_register.coarse_x() == 31 {
+                self.v_address_register.set_coarse_x(0);
+                self.v_address_register.0 ^= 0x0400;
             } else {
-                let nx = self.v_addressess_register.coarse_x();
-                self.v_addressess_register.set_coarse_x(nx + 1);
+                let nx = self.v_address_register.coarse_x();
+                self.v_address_register.set_coarse_x(nx + 1);
             }
         }
     }
     fn scroll_y(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            if self.v_addressess_register.fine_y() < 7 {
-                self.v_addressess_register
-                    .set_fine_y(self.v_addressess_register.fine_y() + 1);
+            if self.v_address_register.fine_y() < 7 {
+                self.v_address_register
+                    .set_fine_y(self.v_address_register.fine_y() + 1);
             } else {
-                self.v_addressess_register.set_fine_y(0);
-                if self.v_addressess_register.coarse_y() == 29 {
-                    self.v_addressess_register.set_coarse_y(0);
-                    self.v_addressess_register.0 ^= 0x0800; // Switch vertical nametable
-                } else if self.v_addressess_register.coarse_y() == 31 {
-                    self.v_addressess_register.set_coarse_y(0);
+                self.v_address_register.set_fine_y(0);
+                if self.v_address_register.coarse_y() == 29 {
+                    self.v_address_register.set_coarse_y(0);
+                    self.v_address_register.0 ^= 0x0800; // Switch vertical nametable
+                } else if self.v_address_register.coarse_y() == 31 {
+                    self.v_address_register.set_coarse_y(0);
                 } else {
-                    self.v_addressess_register
-                        .set_coarse_y(self.v_addressess_register.coarse_y() + 1);
+                    self.v_address_register
+                        .set_coarse_y(self.v_address_register.coarse_y() + 1);
                 }
             }
         }
     }
     fn reset_x(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            self.v_addressess_register
-                .set_nametable_x(self.t_addressess_register.nametable_x());
-            self.v_addressess_register
-                .set_coarse_x(self.t_addressess_register.coarse_x());
+            self.v_address_register
+                .set_nametable_x(self.t_address_register.nametable_x());
+            self.v_address_register
+                .set_coarse_x(self.t_address_register.coarse_x());
         }
     }
     fn reset_y(&mut self) {
         if self.mask.show_background() || self.mask.show_sprites() {
-            self.v_addressess_register
-                .set_fine_y(self.t_addressess_register.fine_y());
-            self.v_addressess_register
-                .set_nametable_y(self.t_addressess_register.nametable_y());
-            self.v_addressess_register
-                .set_coarse_y(self.t_addressess_register.coarse_y());
+            self.v_address_register
+                .set_fine_y(self.t_address_register.fine_y());
+            self.v_address_register
+                .set_nametable_y(self.t_address_register.nametable_y());
+            self.v_address_register
+                .set_coarse_y(self.t_address_register.coarse_y());
         }
     }
 
     pub fn reset(&mut self) {
         self.fine_x = 0x00;
-        self.addressess_latch = 0x00;
+        self.address_latch = 0x00;
         self.data_buffer = 0x00;
         self.scanline = 0;
         self.cycle = 0;
@@ -549,8 +549,8 @@ impl PPU {
         self.status = Status(0);
         self.mask = Mask(0);
         self.controller = Controller(0);
-        self.v_addressess_register = Address(0);
-        self.t_addressess_register = Address(0);
+        self.v_address_register = Address(0);
+        self.t_address_register = Address(0);
     }
     fn load_bg_shifters(&mut self) {
         self.bg_shifter_lsb = (self.bg_shifter_lsb & 0xFF00) | (self.bg_tile_lsb as u16);
@@ -663,23 +663,23 @@ impl PPU {
                 match (self.cycle - 1) % 8 {
                     0 => {
                         self.load_bg_shifters();
-                        let address = 0x2000 | (self.v_addressess_register.get() & 0x0FFF);
+                        let address = 0x2000 | (self.v_address_register.get() & 0x0FFF);
                         self.bg_tile_id = self.ppu_read(address, false); //Correct
                     }
                     2 => {
                         self.bg_tile_attr = self.ppu_read(
                             0x23C0
-                                | ((self.v_addressess_register.nametable_y() as u16) << 11)
-                                | ((self.v_addressess_register.nametable_x() as u16) << 10)
-                                | (((self.v_addressess_register.coarse_y()) >> 2) << 3) as u16
-                                | ((self.v_addressess_register.coarse_x()) >> 2) as u16,
+                                | ((self.v_address_register.nametable_y() as u16) << 11)
+                                | ((self.v_address_register.nametable_x() as u16) << 10)
+                                | (((self.v_address_register.coarse_y()) >> 2) << 3) as u16
+                                | ((self.v_address_register.coarse_x()) >> 2) as u16,
                             false,
                         );
 
-                        if (self.v_addressess_register.coarse_y() & 0x02) > 0 {
+                        if (self.v_address_register.coarse_y() & 0x02) > 0 {
                             self.bg_tile_attr >>= 4;
                         }
-                        if (self.v_addressess_register.coarse_x() & 0x02) > 0 {
+                        if (self.v_address_register.coarse_x() & 0x02) > 0 {
                             self.bg_tile_attr >>= 2;
                         }
                         self.bg_tile_attr &= 0x03;
@@ -688,7 +688,7 @@ impl PPU {
                         self.bg_tile_lsb = self.ppu_read(
                             ((self.controller.background_table() as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
-                                + ((self.v_addressess_register.fine_y() as u16) + 0),
+                                + ((self.v_address_register.fine_y() as u16) + 0),
                             false,
                         );
                     }
@@ -696,7 +696,7 @@ impl PPU {
                         self.bg_tile_msb = self.ppu_read(
                             ((self.controller.background_table() as u16) << 12)
                                 + (((self.bg_tile_id) as u16) << 4)
-                                + ((self.v_addressess_register.fine_y() as u16) + 8),
+                                + ((self.v_address_register.fine_y() as u16) + 8),
                             false,
                         );
                     }
@@ -715,7 +715,7 @@ impl PPU {
             }
             if self.cycle == 338 || self.cycle == 340 {
                 self.bg_tile_id =
-                    self.ppu_read(0x2000 | (self.v_addressess_register.get() & 0x0FFF), false);
+                    self.ppu_read(0x2000 | (self.v_address_register.get() & 0x0FFF), false);
             }
             if self.scanline == -1 && self.cycle >= 280 && self.cycle < 305 {
                 self.reset_y();

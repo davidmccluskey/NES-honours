@@ -17,8 +17,8 @@ pub struct CPU6502 {
     pub sr: u8,   // Status Register
 
     fetched: u8,        //Fetched data
-    addr_absolute: u16, //Absolute address
-    addr_relative: u16, //Relative address
+    address_absolute: u16, //Absolute address
+    address_relative: u16, //Relative address
     opcode: u8,         //Opcode for current Instruction
     cycles: u8,         //Number of cycles
 
@@ -40,9 +40,9 @@ bitflags! {
 
 struct Instruction {
     name: String,
-    addr_name: String,
+    address_name: String,
     cycles: u8,
-    addrmode: fn(&mut CPU6502) -> u8,
+    addressmode: fn(&mut CPU6502) -> u8,
     operation: fn(&mut CPU6502) -> u8,
 }
 
@@ -56,9 +56,9 @@ impl Instruction {
     ) -> Instruction {
         Instruction {
             name: n,
-            addr_name: an,
+            address_name: an,
             cycles: c,
-            addrmode: am,
+            addressmode: am,
             operation: oc,
         }
     }
@@ -78,8 +78,8 @@ impl CPU6502 {
             sr: 0x00,
 
             fetched: 0x00,
-            addr_absolute: 0x0000,
-            addr_relative: 0x0000,
+            address_absolute: 0x0000,
+            address_relative: 0x0000,
             opcode: 0x00,
             cycles: 0,
 
@@ -127,20 +127,20 @@ impl CPU6502 {
         }
     }
 
-    pub fn read(&mut self, addr: u16) -> u8 {
-        return self.bus.cpu_read(addr, false);
+    pub fn read(&mut self, address: u16) -> u8 {
+        return self.bus.cpu_read(address, false);
     }
 
-    pub fn write(&mut self, addr: u16, data: &mut u8) {
-        self.bus.cpu_write(addr, data);
+    pub fn write(&mut self, address: u16, data: &mut u8) {
+        self.bus.cpu_write(address, data);
     }
 
     // Reset Interrupt
     pub fn reset(&mut self) {
         self.bus.reset();
-        self.addr_absolute = 0xFFFC;
-        let low = self.read(self.addr_absolute) as u16;
-        let high = self.read(self.addr_absolute + 1) as u16;
+        self.address_absolute = 0xFFFC;
+        let low = self.read(self.address_absolute) as u16;
+        let high = self.read(self.address_absolute + 1) as u16;
 
         self.pc = (high << 8) | low;
         self.a = 0;
@@ -149,8 +149,8 @@ impl CPU6502 {
         self.sptr = 0xFD;
         self.sr = 0x00;
 
-        self.addr_absolute = 0x0000;
-        self.addr_relative = 0x0000;
+        self.address_absolute = 0x0000;
+        self.address_relative = 0x0000;
         self.fetched = 0x00;
 
         self.cycles = 8;
@@ -175,9 +175,9 @@ impl CPU6502 {
             self.write(0x0100 + self.sptr as u16, &mut sr);
             self.subtract_stack();
 
-            self.addr_absolute = 0xFFFE;
-            let low = self.read(self.addr_absolute) as u16;
-            let high = self.read(self.addr_absolute + 1) as u16;
+            self.address_absolute = 0xFFFE;
+            let low = self.read(self.address_absolute) as u16;
+            let high = self.read(self.address_absolute + 1) as u16;
 
             self.pc = (high << 8) | low;
 
@@ -185,7 +185,7 @@ impl CPU6502 {
         }
     }
 
-    // Non-Maskable Interrupt Request
+    // Non-Maskable Interrupt 
     pub fn nmi(&mut self) {
         let mut val = (self.pc >> 8) as u8 & 0x00FF;
         self.write(0x0100 + self.sptr as u16, &mut val);
@@ -203,9 +203,9 @@ impl CPU6502 {
         self.write(0x0100 + self.sptr as u16, &mut sr);
         self.subtract_stack();
 
-        self.addr_absolute = 0xFFFA;
-        let low = self.read(self.addr_absolute) as u16;
-        let high = self.read(self.addr_absolute + 1) as u16;
+        self.address_absolute = 0xFFFA;
+        let low = self.read(self.address_absolute) as u16;
+        let high = self.read(self.address_absolute + 1) as u16;
 
         self.pc = (high << 8) | low;
 
@@ -230,7 +230,7 @@ impl CPU6502 {
             self.add_pc();
             self.cycles = self.lookup[self.opcode as usize].cycles;
 
-            let add_cycle1 = (self.lookup[self.opcode as usize].addrmode)(self);
+            let add_cycle1 = (self.lookup[self.opcode as usize].addressmode)(self);
             let add_cycle2 = (self.lookup[self.opcode as usize].operation)(self);
 
             self.cycles = self.cycles + (add_cycle1 & add_cycle2);
@@ -244,137 +244,137 @@ impl CPU6502 {
     }
 
     pub fn fetch(&mut self) -> u8 {
-        if !(self.lookup[self.opcode as usize].addr_name == "IMP".to_string()) {
-            self.fetched = self.read(self.addr_absolute);
+        if !(self.lookup[self.opcode as usize].address_name == "IMP".to_string()) {
+            self.fetched = self.read(self.address_absolute);
         }
         return self.fetched;
     }
 
     #[allow(unused_assignments)]
     pub fn disassemble(&mut self, start: u16, stop: u16) -> HashMap<u32, String> {
-        let mut addr: u32 = start as u32;
+        let mut address: u32 = start as u32;
         let mut value: u8 = 0x00;
         let mut lo: u8 = 0x00;
         let mut hi: u8 = 0x00;
-        let mut line_addr: u32 = 0;
+        let mut line_address: u32 = 0;
         let mut lines = HashMap::new();
 
-        while addr <= stop as u32 {
-            line_addr = addr;
-            let mut format = format!("{:X}", addr);
+        while address<= stop as u32 {
+            line_address= address;
+            let mut format = format!("{:X}", address);
             let mut d = "$".to_owned();
             d.push_str(&format);
             d.push_str(": ");
             //println!("{}", d);
-            let mut val = u16::try_from(addr).unwrap();
+            let mut val = u16::try_from(address).unwrap();
             let opcode: u8 = self.bus.cpu_read(val, true);
-            addr = addr + 1;
+            address= address+ 1;
 
             let v = &self.lookup[opcode as usize].name;
             d.push_str(v);
             d.push_str(" ");
 
-            if self.lookup[opcode as usize].addr_name == "IMP" {
+            if self.lookup[opcode as usize].address_name == "IMP" {
                 d.push_str(" {IMP}");
-            } else if self.lookup[opcode as usize].addr_name == "IMM" {
-                addr = addr + 1;
+            } else if self.lookup[opcode as usize].address_name == "IMM" {
+                address= address+ 1;
                 d.push_str(" {IMM}");
-            } else if self.lookup[opcode as usize].addr_name == "ZP0" {
+            } else if self.lookup[opcode as usize].address_name == "ZP0" {
                 lo = self.bus.cpu_read(val, true);
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 format = format!("{:X}", lo);
                 d.push_str(&format);
                 d.push_str(" {ZP0}");
-            } else if self.lookup[opcode as usize].addr_name == "ZPX" {
+            } else if self.lookup[opcode as usize].address_name == "ZPX" {
                 lo = self.bus.cpu_read(val, true);
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 format = format!("{:X}", lo);
                 d.push_str(&format);
                 d.push_str(" X {ZPX}");
-            } else if self.lookup[opcode as usize].addr_name == "ZPY" {
+            } else if self.lookup[opcode as usize].address_name == "ZPY" {
                 lo = self.bus.cpu_read(val, true);
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 format = format!("{:X}", lo);
                 d.push_str(&format);
                 d.push_str(" Y {ZPY}");
-            } else if self.lookup[opcode as usize].addr_name == "IZX" {
+            } else if self.lookup[opcode as usize].address_name == "IZX" {
                 lo = self.bus.cpu_read(val, true);
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 format = format!("{:X}", lo);
                 d.push_str(&format);
                 d.push_str(" X {IZX}");
-            } else if self.lookup[opcode as usize].addr_name == "IZY" {
+            } else if self.lookup[opcode as usize].address_name == "IZY" {
                 lo = self.bus.cpu_read(val, true);
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 format = format!("{:X}", lo);
                 d.push_str(&format);
                 d.push_str(" X {IZY}");
-            } else if self.lookup[opcode as usize].addr_name == "ABS" {
+            } else if self.lookup[opcode as usize].address_name == "ABS" {
                 lo = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 hi = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 let hex_val = ((hi as u16) << 8) | lo as u16;
                 format = format!("{:X}", hex_val);
                 d.push_str(&format);
                 d.push_str(" {ABS}");
-            } else if self.lookup[opcode as usize].addr_name == "ABX" {
+            } else if self.lookup[opcode as usize].address_name == "ABX" {
                 lo = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 hi = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 let hex_val = ((hi as u16) << 8) | lo as u16;
                 format = format!("{:X}", hex_val);
                 d.push_str(&format);
                 d.push_str(" X {ABX}");
-            } else if self.lookup[opcode as usize].addr_name == "ABY" {
+            } else if self.lookup[opcode as usize].address_name == "ABY" {
                 lo = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 hi = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 let hex_val = ((hi as u16) << 8) | lo as u16;
                 format = format!("{:X}", hex_val);
                 d.push_str(&format);
                 d.push_str(" Y {ABY}");
-            } else if self.lookup[opcode as usize].addr_name == "IND" {
+            } else if self.lookup[opcode as usize].address_name == "IND" {
                 lo = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 hi = self.bus.cpu_read(val, true);
                 val = val + 1;
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("($");
                 let hex_val = ((hi as u16) << 8) | lo as u16;
                 format = format!("{:X}", hex_val);
                 d.push_str(&format);
                 d.push_str(" {IND})");
-            } else if self.lookup[opcode as usize].addr_name == "REL" {
+            } else if self.lookup[opcode as usize].address_name == "REL" {
                 value = self.bus.cpu_read(val, true);
-                addr = addr + 1;
+                address= address+ 1;
                 d.push_str("$");
                 format = format!("{:X}", value);
                 d.push_str(&format);
                 d.push_str(" [&");
 
-                format = format!("{:X}", (addr + value as u32));
+                format = format!("{:X}", (address+ value as u32));
                 d.push_str(&format);
                 d.push_str("] {REL}");
             }
-            lines.insert(line_addr, d);
+            lines.insert(line_address, d);
         }
         println!("");
         return lines;
@@ -383,38 +383,38 @@ impl CPU6502 {
 
 #[allow(non_snake_case)]
 impl CPU6502 {
-    //Addressing modes
+    //addressing modes
     fn IMP(&mut self) -> u8 {
         self.fetched = self.a;
         return 0;
     }
 
     fn IMM(&mut self) -> u8 {
-        self.addr_absolute = self.pc;
+        self.address_absolute = self.pc;
         self.add_pc();
 
         return 0;
     }
 
     fn ZP0(&mut self) -> u8 {
-        self.addr_absolute = self.read(self.pc) as u16;
+        self.address_absolute = self.read(self.pc) as u16;
         self.add_pc();
 
-        self.addr_absolute &= 0x00FF;
+        self.address_absolute &= 0x00FF;
         return 0;
     }
 
     fn ZPX(&mut self) -> u8 {
-        self.addr_absolute = self.read(self.pc) as u16 + self.x as u16;
+        self.address_absolute = self.read(self.pc) as u16 + self.x as u16;
         self.add_pc();
-        self.addr_absolute &= 0x00FF;
+        self.address_absolute &= 0x00FF;
         return 0;
     }
 
     fn ZPY(&mut self) -> u8 {
-        self.addr_absolute = self.read(self.pc) as u16 + self.y as u16;
+        self.address_absolute = self.read(self.pc) as u16 + self.y as u16;
         self.add_pc();
-        self.addr_absolute &= 0x00FF;
+        self.address_absolute &= 0x00FF;
         return 0;
     }
 
@@ -425,7 +425,7 @@ impl CPU6502 {
         let high = self.read(self.pc) as u16;
         self.add_pc();
 
-        self.addr_absolute = (high << 8) | low;
+        self.address_absolute = (high << 8) | low;
         return 0;
     }
 
@@ -436,12 +436,12 @@ impl CPU6502 {
         let high = self.read(self.pc) as u16;
         self.add_pc();
 
-        self.addr_absolute = (high << 8) | low;
+        self.address_absolute = (high << 8) | low;
         let wrapped_x = Wrapping(self.x as u16);
-        let wrapped_addr = Wrapping(self.addr_absolute);
-        self.addr_absolute = (wrapped_x + wrapped_addr).0;
+        let wrapped_address= Wrapping(self.address_absolute);
+        self.address_absolute = (wrapped_x + wrapped_address).0;
 
-        if (self.addr_absolute & 0xFF00) != (high << 8) {
+        if (self.address_absolute & 0xFF00) != (high << 8) {
             return 1;
         } else {
             return 0;
@@ -455,13 +455,13 @@ impl CPU6502 {
         let high = self.read(self.pc) as u16;
         self.add_pc();
 
-        self.addr_absolute = (high << 8) | low;
+        self.address_absolute = (high << 8) | low;
 
         let wrapped_y = Wrapping(self.y as u16);
-        let wrapped_addr = Wrapping(self.addr_absolute);
-        self.addr_absolute = (wrapped_y + wrapped_addr).0;
+        let wrapped_address= Wrapping(self.address_absolute);
+        self.address_absolute = (wrapped_y + wrapped_address).0;
 
-        if (self.addr_absolute & 0xFF00) != (high << 8) {
+        if (self.address_absolute & 0xFF00) != (high << 8) {
             return 1;
         } else {
             return 0;
@@ -478,14 +478,14 @@ impl CPU6502 {
         let ptr = (ptr_high << 8) | ptr_low;
 
         if ptr_low == 0x00FF {
-            let addr = ptr & 0xFF00;
-            let low = (self.read(addr) as u16) << 8;
+            let address= ptr & 0xFF00;
+            let low = (self.read(address) as u16) << 8;
             let high = self.read(ptr) as u16;
-            self.addr_absolute = low | high; //OVERFLOW
+            self.address_absolute = low | high; //OVERFLOW
         } else {
             let low = (self.read((ptr as u16) + 1) as u16) << 8;
             let high = self.read(ptr) as u16;
-            self.addr_absolute = (low | high) as u16; //OVERFLOW
+            self.address_absolute = (low | high) as u16; //OVERFLOW
         }
         return 0;
     }
@@ -494,7 +494,7 @@ impl CPU6502 {
         self.add_pc();
         let low = self.read((t + self.x as u16) & 0x00FF) as u16;
         let high = self.read((t + self.x as u16 + 1) & 0x00FF) as u16;
-        self.addr_absolute = (high << 8) | low;
+        self.address_absolute = (high << 8) | low;
         return 0;
     }
     fn IZY(&mut self) -> u8 {
@@ -502,25 +502,25 @@ impl CPU6502 {
         self.add_pc();
         let low = self.read(t & 0x00FF) as u16;
         let high = self.read((t + 1) & 0x00FF) as u16;
-        self.addr_absolute = (high << 8) | low;
+        self.address_absolute = (high << 8) | low;
 
         let wrapped_y = Wrapping(self.y as u16);
-        let wrapped_addr = Wrapping(self.addr_absolute);
-        let tmp = (wrapped_y + wrapped_addr).0;
-        self.addr_absolute = tmp;
+        let wrapped_address= Wrapping(self.address_absolute);
+        let tmp = (wrapped_y + wrapped_address).0;
+        self.address_absolute = tmp;
 
-        if (self.addr_absolute & 0xFF00) != (high << 8) {
+        if (self.address_absolute & 0xFF00) != (high << 8) {
             return 1;
         } else {
             return 0;
         }
     }
     fn REL(&mut self) -> u8 {
-        self.addr_relative = self.read(self.pc) as u16;
+        self.address_relative = self.read(self.pc) as u16;
         self.add_pc();
-        if (self.addr_relative & 0x80) > 0 {
+        if (self.address_relative & 0x80) > 0 {
             //BUG??
-            self.addr_relative |= 0xFF00;
+            self.address_relative |= 0xFF00;
         }
         return 0;
     }
@@ -596,10 +596,10 @@ impl CPU6502 {
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
         self.set_flag(Flags::N, (tmp & 0x80) > 0);
 
-        if self.lookup[self.opcode as usize].addr_name == "IMP" {
+        if self.lookup[self.opcode as usize].address_name == "IMP" {
             self.a = (tmp & 0x00FF) as u8;
         } else {
-            self.write(self.addr_absolute, &mut ((tmp & 0x00FF) as u8));
+            self.write(self.address_absolute, &mut ((tmp & 0x00FF) as u8));
         }
         return 0;
     }
@@ -609,13 +609,13 @@ impl CPU6502 {
         if self.get_flag(Flags::C) == 0 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            let wrapped_address= Wrapping(self.address_relative);
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -625,13 +625,13 @@ impl CPU6502 {
         if self.get_flag(Flags::C) == 1 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            let wrapped_address= Wrapping(self.address_relative);
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -641,13 +641,13 @@ impl CPU6502 {
         if self.get_flag(Flags::Z) == 1 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            let wrapped_address= Wrapping(self.address_relative);
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -667,13 +667,13 @@ impl CPU6502 {
         if self.get_flag(Flags::N) == 1 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            let wrapped_address= Wrapping(self.address_relative);
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -683,14 +683,14 @@ impl CPU6502 {
         if self.get_flag(Flags::Z) == 0 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
+            let wrapped_address= Wrapping(self.address_relative);
 
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -700,13 +700,13 @@ impl CPU6502 {
         if self.get_flag(Flags::N) == 0 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            let wrapped_address= Wrapping(self.address_relative);
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -715,10 +715,10 @@ impl CPU6502 {
     fn BRK(&mut self) -> u8 {
         self.add_pc();
         self.set_flag(Flags::I, true);
-        let addr = 0x0100 + self.sptr as u16;
+        let address= 0x0100 + self.sptr as u16;
         let mut data = ((self.pc >> 8) as u8) & 0x00FF;
 
-        self.write(addr, &mut data);
+        self.write(address, &mut data);
         self.subtract_stack();
         self.write(0x0100 + self.sptr as u16, &mut ((self.pc & 0x00FF) as u8));
         self.subtract_stack();
@@ -736,14 +736,14 @@ impl CPU6502 {
         if self.get_flag(Flags::V) == 0 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
+            let wrapped_address= Wrapping(self.address_relative);
 
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -753,13 +753,13 @@ impl CPU6502 {
         if self.get_flag(Flags::V) == 1 {
             self.cycles += 1;
             let wrapped_pc = Wrapping(self.pc);
-            let wrapped_addr = Wrapping(self.addr_relative);
-            self.addr_absolute = (wrapped_pc + wrapped_addr).0;
+            let wrapped_address= Wrapping(self.address_relative);
+            self.address_absolute = (wrapped_pc + wrapped_address).0;
 
-            if (self.addr_absolute & 0xFF00) != (self.pc & 0xFF00) {
+            if (self.address_absolute & 0xFF00) != (self.pc & 0xFF00) {
                 self.cycles += 1;
             }
-            self.pc = self.addr_absolute;
+            self.pc = self.address_absolute;
         }
         return 0;
     }
@@ -836,7 +836,7 @@ impl CPU6502 {
         } else {
             tmp = (self.fetched as u16) - 1;
         }
-        self.write(self.addr_absolute, &mut (tmp as u8 & 0x00FF));
+        self.write(self.address_absolute, &mut (tmp as u8 & 0x00FF));
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0); //Check
         return 0;
@@ -882,7 +882,7 @@ impl CPU6502 {
         if self.fetched != 255 {
             tmp = self.fetched + 1;
         }
-        self.write(self.addr_absolute, &mut (tmp & 0x00FF));
+        self.write(self.address_absolute, &mut (tmp & 0x00FF));
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
         return 0;
@@ -914,7 +914,7 @@ impl CPU6502 {
 
     //Jump
     fn JMP(&mut self) -> u8 {
-        self.pc = self.addr_absolute;
+        self.pc = self.address_absolute;
         return 0;
     }
 
@@ -928,7 +928,7 @@ impl CPU6502 {
         self.subtract_stack();
         self.write(0x0100 + (self.sptr as u16), &mut ((self.pc as u8) & 0x00FF));
         self.subtract_stack();
-        self.pc = self.addr_absolute;
+        self.pc = self.address_absolute;
         return 0;
     }
 
@@ -966,10 +966,10 @@ impl CPU6502 {
         let tmp = self.fetched >> 1;
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
-        if self.lookup[self.opcode as usize].addr_name == "IMP" {
+        if self.lookup[self.opcode as usize].address_name == "IMP" {
             self.a = tmp & 0x00FF;
         } else {
-            self.write(self.addr_absolute, &mut (tmp & 0x00FF));
+            self.write(self.address_absolute, &mut (tmp & 0x00FF));
         }
         return 0;
     }
@@ -1019,8 +1019,8 @@ impl CPU6502 {
     //Pop accumulator
     fn PLA(&mut self) -> u8 {
         self.add_stack();
-        let addr = 0x0100 + self.sptr as u16;
-        self.a = self.read(addr);
+        let address= 0x0100 + self.sptr as u16;
+        self.a = self.read(address);
 
         self.set_flag(Flags::Z, self.a == 0x000);
         self.set_flag(Flags::N, (self.a & 0x80) > 0);
@@ -1043,10 +1043,10 @@ impl CPU6502 {
         self.set_flag(Flags::C, (tmp & 0xFF00) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x0000);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
-        if self.lookup[self.opcode as usize].addr_name == "IMP" {
+        if self.lookup[self.opcode as usize].address_name == "IMP" {
             self.a = tmp as u8 & 0x00FF;
         } else {
-            self.write(self.addr_absolute, &mut ((tmp as u8) & 0x00FF));
+            self.write(self.address_absolute, &mut ((tmp as u8) & 0x00FF));
         }
         return 0;
     }
@@ -1058,10 +1058,10 @@ impl CPU6502 {
         self.set_flag(Flags::C, (self.fetched & 0x01) > 0);
         self.set_flag(Flags::Z, (tmp & 0x00FF) == 0x00);
         self.set_flag(Flags::N, (tmp & 0x0080) > 0);
-        if self.lookup[self.opcode as usize].addr_name == "IMP" {
+        if self.lookup[self.opcode as usize].address_name == "IMP" {
             self.a = tmp as u8 & 0x00FF;
         } else {
-            self.write(self.addr_absolute, &mut (tmp as u8 & 0x00FF));
+            self.write(self.address_absolute, &mut (tmp as u8 & 0x00FF));
         }
         return 0;
     }
@@ -1117,7 +1117,7 @@ impl CPU6502 {
     //Store accumulator
     fn STA(&mut self) -> u8 {
         let mut a = self.a;
-        self.write(self.addr_absolute, &mut a);
+        self.write(self.address_absolute, &mut a);
 
         return 0;
     }
@@ -1125,14 +1125,14 @@ impl CPU6502 {
     //Store X
     fn STX(&mut self) -> u8 {
         let mut x = self.x;
-        self.write(self.addr_absolute, &mut x);
+        self.write(self.address_absolute, &mut x);
         return 0;
     }
 
     //Store Y
     fn STY(&mut self) -> u8 {
         let mut y = self.y;
-        self.write(self.addr_absolute, &mut y);
+        self.write(self.address_absolute, &mut y);
         return 0;
     }
 
@@ -3053,8 +3053,8 @@ fn test_read_write() {
 #[test]
 fn test_reset() {
     let mut nes = CPU6502::new();
-    let low = nes.read(nes.addr_absolute) as u16;
-    let high = nes.read(nes.addr_absolute + 1) as u16;
+    let low = nes.read(nes.address_absolute) as u16;
+    let high = nes.read(nes.address_absolute + 1) as u16;
     let pc = (high << 8) | low;
     nes.reset();
 
@@ -3065,8 +3065,8 @@ fn test_reset() {
 
     assert_eq!(nes.pc, pc);
 
-    assert_eq!(nes.addr_absolute, 0);
-    assert_eq!(nes.addr_relative, 0);
+    assert_eq!(nes.address_absolute, 0);
+    assert_eq!(nes.address_relative, 0);
     assert_eq!(nes.fetched, 0);
     assert_eq!(nes.cycles, 8);
 }
@@ -3114,7 +3114,7 @@ fn test_add_pc() {
 #[test]
 fn test_adc() {
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 10;
     nes.ADC();
     assert_eq!(nes.a, 10);
@@ -3130,7 +3130,7 @@ fn test_adc() {
 #[test]
 fn test_sbc() {
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 10;
     nes.a = 15;
     nes.set_flag(Flags::C, true); //Subtraction is inverted addition, so carry must be set
@@ -3152,7 +3152,7 @@ fn test_sbc() {
 #[test]
 fn test_and() {
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 10;
     nes.a = 15;
     nes.AND();
@@ -3173,18 +3173,18 @@ fn test_and() {
 #[test]
 fn test_asl() {
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 15;
     nes.ASL();
-    assert_eq!(nes.bus.ram[nes.addr_absolute as usize], 30);
+    assert_eq!(nes.bus.ram[nes.address_absolute as usize], 30);
 
     nes.bus.ram[0x000] = 40;
     nes.ASL();
-    assert_eq!(nes.bus.ram[nes.addr_absolute as usize], 80);
+    assert_eq!(nes.bus.ram[nes.address_absolute as usize], 80);
 
     nes.bus.ram[0x000] = 200;
     nes.ASL();
-    assert_eq!(nes.bus.ram[nes.addr_absolute as usize], 144);
+    assert_eq!(nes.bus.ram[nes.address_absolute as usize], 144);
     assert_eq!(nes.get_flag(Flags::C), 1);
     assert_eq!(nes.get_flag(Flags::N), 1);
 }
@@ -3194,30 +3194,30 @@ fn test_bcc() {
     let mut nes = CPU6502::new();
     //Test if carry clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::C, false);
     nes.BCC();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 
     //Test if carry set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::C, true);
     nes.BCC();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 }
 
@@ -3227,30 +3227,30 @@ fn test_bcs() {
 
     //Test if carry set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::C, true);
     nes.BCS();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 
     //Test if carry clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::C, false);
     nes.BCS();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 }
 
@@ -3260,30 +3260,30 @@ fn test_beq() {
 
     //Test if zero set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::Z, true);
     nes.BEQ();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 
     //Test if zero clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::Z, false);
     nes.BEQ();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 }
 
@@ -3291,14 +3291,14 @@ fn test_beq() {
 fn test_bit() {
     //Test for Zero flag set
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 128;
     nes.a = 8;
     nes.BIT();
     assert_eq!(nes.get_flag(Flags::Z), 1);
 
     //Test for Negative flag
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 255;
     nes.a = 8;
     nes.BIT();
@@ -3306,7 +3306,7 @@ fn test_bit() {
     assert_eq!(nes.get_flag(Flags::Z), 0);
 
     //Test for overflow flag
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 255;
     nes.a = 8;
     nes.BIT();
@@ -3320,30 +3320,30 @@ fn test_bmi() {
 
     //Test if negative set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::N, true);
     nes.BMI();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 
     //Test if negative clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::C, false);
     nes.BMI();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 }
 
@@ -3353,30 +3353,30 @@ fn test_bne() {
 
     //Test if Zero set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::Z, true);
     nes.BNE();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 
     //Test if Zero clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::Z, false);
     nes.BNE();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 }
 
@@ -3386,30 +3386,30 @@ fn test_bpl() {
 
     //Test if Negative set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::N, true);
     nes.BPL();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 
     //Test if Negative clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::N, false);
     nes.BPL();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 }
 
@@ -3419,8 +3419,8 @@ fn test_brk_rti()
     let mut nes = CPU6502::new();
 
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x16;
     let pre_pc = nes.pc;
     let pre_sptr = nes.sptr;
@@ -3444,30 +3444,30 @@ fn test_bvc()
 
     //Test if Overflow set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::V, true);
     nes.BVC();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 
     //Test if Overflow clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::V, false);
     nes.BVC();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 }
 
@@ -3478,30 +3478,30 @@ fn test_bvs()
 
     //Test if Overflow set
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::V, true);
     nes.BVS();
     assert_ne!(pre_pc, nes.pc);
-    assert_ne!(pre_addr, nes.addr_absolute);
+    assert_ne!(pre_address, nes.address_absolute);
     assert_ne!(pre_cycle, nes.cycles);
 
     //Test if Overflow clear
     nes.reset();
-    nes.addr_absolute = 0xFF;
-    nes.addr_relative = 0x03;
+    nes.address_absolute = 0xFF;
+    nes.address_relative = 0x03;
     nes.pc = 0x10;
     let pre_pc = nes.pc;
-    let pre_addr = nes.addr_absolute;
+    let pre_address= nes.address_absolute;
     let pre_cycle = nes.cycles;
     nes.set_flag(Flags::V, false);
     nes.BVS();
     assert_eq!(pre_pc, nes.pc);
-    assert_eq!(pre_addr, nes.addr_absolute);
+    assert_eq!(pre_address, nes.address_absolute);
     assert_eq!(pre_cycle, nes.cycles);
 }
 
@@ -3551,7 +3551,7 @@ fn test_cmp()
     //Test Zero flag set
     let mut nes = CPU6502::new();
     nes.a = 10;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CMP();
     assert_eq!(nes.get_flag(Flags::Z), 1);
@@ -3561,7 +3561,7 @@ fn test_cmp()
 
     //Test Carry flag set
     nes.a = 15;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CMP();
     assert_eq!(nes.get_flag(Flags::Z), 0);
@@ -3570,7 +3570,7 @@ fn test_cmp()
 
     //Test Negative flag set
     nes.a = 240;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CMP();
     assert_eq!(nes.get_flag(Flags::Z), 0);
@@ -3585,7 +3585,7 @@ fn test_cpx()
     //Test Zero flag set
     let mut nes = CPU6502::new();
     nes.x = 10;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CPX();
     assert_eq!(nes.get_flag(Flags::Z), 1);
@@ -3595,7 +3595,7 @@ fn test_cpx()
 
     //Test Carry flag set
     nes.x = 15;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CPX();
     assert_eq!(nes.get_flag(Flags::Z), 0);
@@ -3604,7 +3604,7 @@ fn test_cpx()
 
     //Test Negative flag set
     nes.x = 240;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CPX();
     assert_eq!(nes.get_flag(Flags::Z), 0);
@@ -3618,7 +3618,7 @@ fn test_cpy()
     //Test Zero flag set
     let mut nes = CPU6502::new();
     nes.y = 10;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CPY();
     assert_eq!(nes.get_flag(Flags::Z), 1);
@@ -3628,7 +3628,7 @@ fn test_cpy()
 
     //Test Carry flag set
     nes.y = 15;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CPY();
     assert_eq!(nes.get_flag(Flags::Z), 0);
@@ -3637,7 +3637,7 @@ fn test_cpy()
 
     //Test Negative flag set
     nes.y = 240;
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.CPY();
     assert_eq!(nes.get_flag(Flags::Z), 0);
@@ -3650,21 +3650,21 @@ fn test_dec()
 {
     //Test decrement
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.DEC();
     assert_eq!(nes.bus.ram[0x0001], 9);
     
     //Test overflow
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 0;
     nes.DEC();
     assert_eq!(nes.bus.ram[0x0001], 255);
 
     //Test Negative flag
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 230;
     nes.DEC();
     assert_eq!(nes.get_flag(Flags::N), 1);     
@@ -3720,7 +3720,7 @@ fn test_dey()
 fn test_eor()
 {
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.bus.ram[0x001] = 10;
     nes.a = 28;
     nes.EOR();
@@ -3728,7 +3728,7 @@ fn test_eor()
 
     //Test Zero Flag
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.bus.ram[0x001] = 28;
     nes.a = 28;
     nes.EOR();
@@ -3737,7 +3737,7 @@ fn test_eor()
 
      //Test Negative Flag
      let mut nes = CPU6502::new();
-     nes.addr_absolute = 0x001;
+     nes.address_absolute = 0x001;
      nes.bus.ram[0x001] = 240;
      nes.a = 28;
      nes.EOR();
@@ -3749,21 +3749,21 @@ fn test_eor()
 fn test_inc(){
     //Test increment
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 10;
     nes.INC();
     assert_eq!(nes.bus.ram[0x0001], 11);
     
     //Test overflow
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 255;
     nes.INC();
     assert_eq!(nes.bus.ram[0x0001], 0);
 
     //Test Negative flag
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 230;
     nes.INC();
     assert_eq!(nes.bus.ram[0x0001], 231);
@@ -3815,9 +3815,9 @@ fn test_iny(){
 fn test_jmp(){
     let mut nes = CPU6502::new();
     nes.pc = 1000;
-    nes.addr_absolute = 12000;
+    nes.address_absolute = 12000;
     nes.JMP();
-    assert_eq!(nes.pc, nes.addr_absolute);
+    assert_eq!(nes.pc, nes.address_absolute);
     assert_ne!(nes.pc, 1000);
 }
 #[test]
@@ -3826,7 +3826,7 @@ fn test_jsr_rts()
     let mut nes = CPU6502::new();
     //JSR
     nes.reset();
-    nes.addr_absolute = 100;
+    nes.address_absolute = 100;
     nes.pc = 12;
 
     nes.JSR();
@@ -3844,7 +3844,7 @@ fn test_lda()
 {
     //Test Load
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 20;
     nes.LDA();
     assert_eq!(nes.a, 20);
@@ -3852,7 +3852,7 @@ fn test_lda()
     assert_eq!(nes.get_flag(Flags::N), 0);  
     
     //Test Zero
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 0;
     nes.LDA();
     assert_eq!(nes.a, 0);
@@ -3860,7 +3860,7 @@ fn test_lda()
     assert_eq!(nes.get_flag(Flags::N), 0);  
     
     //Test Negative
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 230;
     nes.LDA();
     assert_eq!(nes.a, 230);
@@ -3872,7 +3872,7 @@ fn test_lda()
 fn test_ldx(){
     //Test Load
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 20;
     nes.LDX();
     assert_eq!(nes.x, 20);
@@ -3880,7 +3880,7 @@ fn test_ldx(){
     assert_eq!(nes.get_flag(Flags::N), 0);  
     
     //Test Zero
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 0;
     nes.LDX();
     assert_eq!(nes.x, 0);
@@ -3888,7 +3888,7 @@ fn test_ldx(){
     assert_eq!(nes.get_flag(Flags::N), 0);  
     
     //Test Negative
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 230;
     nes.LDX();
     assert_eq!(nes.x, 230);
@@ -3900,7 +3900,7 @@ fn test_ldx(){
 fn test_ldy(){
     //Test Load
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 20;
     nes.LDY();
     assert_eq!(nes.y, 20);
@@ -3908,7 +3908,7 @@ fn test_ldy(){
     assert_eq!(nes.get_flag(Flags::N), 0);  
     
     //Test Zero
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 0;
     nes.LDY();
     assert_eq!(nes.y, 0);
@@ -3916,7 +3916,7 @@ fn test_ldy(){
     assert_eq!(nes.get_flag(Flags::N), 0);  
     
     //Test Negative
-    nes.addr_absolute = 0x0001;
+    nes.address_absolute = 0x0001;
     nes.bus.ram[0x0001] = 230;
     nes.LDY();
     assert_eq!(nes.y, 230);
@@ -3927,18 +3927,18 @@ fn test_ldy(){
 #[test]
 fn test_lsr(){
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 17;
     nes.LSR();
-    assert_eq!(nes.bus.ram[nes.addr_absolute as usize], 8);
+    assert_eq!(nes.bus.ram[nes.address_absolute as usize], 8);
 
     nes.bus.ram[0x000] = 30;
     nes.LSR();
-    assert_eq!(nes.bus.ram[nes.addr_absolute as usize], 15);
+    assert_eq!(nes.bus.ram[nes.address_absolute as usize], 15);
 
     nes.bus.ram[0x000] = 255;
     nes.LSR();
-    assert_eq!(nes.bus.ram[nes.addr_absolute as usize], 127);
+    assert_eq!(nes.bus.ram[nes.address_absolute as usize], 127);
     assert_eq!(nes.get_flag(Flags::C), 1);
     assert_eq!(nes.get_flag(Flags::N), 0);
 }
@@ -3946,7 +3946,7 @@ fn test_lsr(){
 #[test]
 fn test_ora(){
     let mut nes = CPU6502::new();
-    nes.addr_absolute = 0x000;
+    nes.address_absolute = 0x000;
     nes.bus.ram[0x000] = 130;
     nes.a = 40;
     nes.ORA();
@@ -4043,14 +4043,14 @@ fn test_rol(){
     let mut nes = CPU6502::new();
     nes.reset();
     nes.bus.ram[0x001] = 10;
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.ROL();
     assert_eq!(nes.bus.ram[0x001], 20);
 
     //Test Zero flag is set
     nes.reset();
     nes.bus.ram[0x001] = 0;
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.ROL();
     assert_eq!(nes.bus.ram[0x001], 0);
     assert_eq!(nes.get_flag(Flags::Z), 1);  
@@ -4058,7 +4058,7 @@ fn test_rol(){
     //Test Negative flag is set
     nes.reset();
     nes.bus.ram[0x001] = 120;
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.ROL();
     assert_eq!(nes.bus.ram[0x001], 240);
     assert_eq!(nes.get_flag(Flags::N), 1);  
@@ -4069,14 +4069,14 @@ fn test_ror(){
     let mut nes = CPU6502::new();
     nes.reset();
     nes.bus.ram[0x001] = 10;
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.ROR();
     assert_eq!(nes.bus.ram[0x001], 5);
 
     //Test Zero flag is set
     nes.reset();
     nes.bus.ram[0x001] = 1;
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.ROR();
     assert_eq!(nes.bus.ram[0x001], 0);
     assert_eq!(nes.get_flag(Flags::Z), 1);  
@@ -4084,7 +4084,7 @@ fn test_ror(){
     //Test Negative flag is never set
     nes.reset();
     nes.bus.ram[0x001] = 255;
-    nes.addr_absolute = 0x001;
+    nes.address_absolute = 0x001;
     nes.ROR();
     assert_eq!(nes.bus.ram[0x001], 127);
     assert_eq!(nes.get_flag(Flags::N), 0);  
@@ -4122,7 +4122,7 @@ fn test_sta()
     let mut nes = CPU6502::new();
     nes.reset();
     nes.a = 10;
-    nes.addr_absolute = 0x010;
+    nes.address_absolute = 0x010;
     nes.STA();
     assert_eq!(nes.a, nes.bus.ram[0x010]);
 }
@@ -4131,7 +4131,7 @@ fn test_stx(){
     let mut nes = CPU6502::new();
     nes.reset();
     nes.x = 10;
-    nes.addr_absolute = 0x010;
+    nes.address_absolute = 0x010;
     nes.STX();
     assert_eq!(nes.x, nes.bus.ram[0x010]);
 }
@@ -4140,7 +4140,7 @@ fn test_sty(){
     let mut nes = CPU6502::new();
     nes.reset();
     nes.y = 10;
-    nes.addr_absolute = 0x010;
+    nes.address_absolute = 0x010;
     nes.STY();
     assert_eq!(nes.y, nes.bus.ram[0x010]);
 }

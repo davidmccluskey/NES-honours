@@ -157,16 +157,16 @@ impl Cartridge {
     pub fn reset(&mut self){
         self.mapper.reset();
     }
-    pub fn cpu_write(&mut self, addr: u16, data: &mut u8) -> bool {
-        let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_mapper_write(addr, &mut mapped_addr, data){   
-                if mapped_addr == 0xFFFFFFFF
+    pub fn cpu_write(&mut self, address: u16, data: &mut u8) -> bool {
+        let mut mapped_address: i32 = 0;
+        if self.mapper.cpu_mapper_write(address, &mut mapped_address, data){   
+                if mapped_address == -1
                 {
                     return true;
                 }
                 else
                 {
-                    self.vec_prg_memory[mapped_addr as usize] = *data;
+                    self.vec_prg_memory[mapped_address as usize] = *data;
                 }
                 return true;
             }
@@ -175,16 +175,16 @@ impl Cartridge {
             }
     }
 
-    pub fn cpu_read(&mut self, addr: u16, data: &mut u8) -> bool {
-        let mut mapped_addr: u32 = 0;
-        if self.mapper.cpu_mapper_read(addr, &mut mapped_addr, data){
-            if mapped_addr == 0xFFFFFFFF
+    pub fn cpu_read(&mut self, address: u16, data: &mut u8) -> bool {
+        let mut mapped_address: i32 = 0;
+        if self.mapper.cpu_mapper_read(address, &mut mapped_address, data){
+            if mapped_address == -1
             {
                 return true;
             }
             else
             {
-                *data = self.vec_prg_memory[mapped_addr as usize];
+                *data = self.vec_prg_memory[mapped_address as usize];
             }
             return true;
         }
@@ -193,20 +193,20 @@ impl Cartridge {
         }
     }
 
-    pub fn ppu_read(&mut self, addr: u16, data: &mut u8) -> bool {
-        let mut mapped_addr: u32 = 0;
-        if self.mapper.ppu_mapper_read(addr, &mut mapped_addr){
-            *data = self.vec_chr_memory[mapped_addr as usize];
+    pub fn ppu_read(&mut self, address: u16, data: &mut u8) -> bool {
+        let mut mapped_address: u32 = 0;
+        if self.mapper.ppu_mapper_read(address, &mut mapped_address){
+            *data = self.vec_chr_memory[mapped_address as usize];
             return true;
         }else{
             return false;
         }
     }
 
-    pub fn ppu_write(&mut self, addr: u16, data: u8) -> bool {
-        let mut mapped_addr: u32 = 0;
-        if self.mapper.ppu_mapper_write(addr, &mut mapped_addr){
-            self.vec_chr_memory[mapped_addr as usize] = data;
+    pub fn ppu_write(&mut self, address: u16, data: u8) -> bool {
+        let mut mapped_address: u32 = 0;
+        if self.mapper.ppu_mapper_write(address, &mut mapped_address){
+            self.vec_chr_memory[mapped_address as usize] = data;
             return true;
         }else{
             return false;

@@ -16,32 +16,30 @@ impl Mapper0 {
 
 #[allow(unused_comparisons)]
 impl Mapper for Mapper0 {
-    fn cpu_mapper_read(&mut self, address: u16, mapped_address: &mut u32, data: &mut u8) -> bool {
-        if address >= 0x8000 && address <= 0xFFFF {
-            if self.n_prg_banks > 1 
-            {
-                let m_address = (address & 0x7FFF) as u32;
-                *mapped_address = m_address;
-            }else
-            {
-                let m_address = (address & 0x3FFF) as u32;
-                *mapped_address = m_address;
-            }
+    fn cpu_mapper_read(&mut self, address: u16, mapped_address: &mut i32, data: &mut u8) -> bool {
+        if address >= 0x8000 && address <= 0xBFFF 
+        {
+            let m_address = (address & 0x3FFF) as u32;
+            *mapped_address = m_address as i32;
+            return true;
+        }else if address >= 0xC000 && address <= 0xFFFF 
+        {
+            let m_address = (address & 0x7FFF) as u32;
+            *mapped_address = m_address as i32;
             return true;
         }
         return false;
     }
-    fn cpu_mapper_write(&mut self, address: u16, mapped_address: &mut u32, data: &mut u8) -> bool {
-        if address >= 0x8000 && address <= 0xFFFF {
-            if self.n_prg_banks > 1 
-            {
-                let m_address = (address & 0x7FFF) as u32;
-                *mapped_address = m_address;
-            }else
-            {
-                let m_address = (address & 0x3FFF) as u32;
-                *mapped_address = m_address;
-            }
+    fn cpu_mapper_write(&mut self, address: u16, mapped_address: &mut i32, data: &mut u8) -> bool {
+        if address >= 0x8000 && address <= 0xBFFF 
+        {
+            let m_address = (address & 0x3FFF) as u32;
+            *mapped_address = m_address as i32;
+            return true;
+        }else if address >= 0xC000 && address <= 0xFFFF 
+        {
+            let m_address = (address & 0x7FFF) as u32;
+            *mapped_address = m_address as i32;
             return true;
         }
         return false;

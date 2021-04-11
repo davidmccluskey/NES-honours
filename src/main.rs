@@ -14,6 +14,7 @@ use sdl2::render::TextureAccess;
 
 use sdl2::render::WindowCanvas;
 use std::cell::RefCell;
+use std::fs::OpenOptions;
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
@@ -57,7 +58,7 @@ fn validate_rom() -> cartridge::Cartridge
         stdin().read_line(&mut rom).unwrap().to_string();
         rom.truncate(rom.len() - 1);
 
-        if rom == "/Users/multivac/NES/source/src/roms/tests/mapper/".to_string()
+        if rom == "/Users/multivac/NES/source/src/roms/games/mario.nes".to_string()
         {
             println!("valid");
         }

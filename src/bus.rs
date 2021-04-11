@@ -47,19 +47,28 @@ impl Bus {
   //Function to write to RAM
   #[allow(unused_comparisons)]
   pub fn cpu_write(&mut self, address: u16, data: &mut u8) {
-    if let Some(ref c) = self.cartridge {
-      if c.borrow_mut().cpu_write(address, data) {
-      } else if address >= 0x0000 && address <= 0x1FFF {
+    if let Some(ref c) = self.cartridge 
+    {
+      if c.borrow_mut().cpu_write(address, data) == true
+      {
+        //Cartridge read
+      } 
+      else if address >= 0x0000 && address <= 0x1FFF 
+      {
         self.ram[(address & 0x07FF) as usize] = *data;
-      } else if address >= 0x2000 && address <= 0x3FFF {
+      } else if address >= 0x2000 && address <= 0x3FFF 
+      {
         self.ppu.cpu_write(address & 0x0007, *data);
-      } else if (address >= 0x4000 && address <= 0x4013) || address == 0x4015 || address == 0x4017 {
+      } else if (address >= 0x4000 && address <= 0x4013) || address == 0x4015 || address == 0x4017 
+      {
         self.apu.cpu_write(address, *data);
-      } else if address == 0x4014 {
+      } else if address == 0x4014 
+      {
         self.dma_page = *data;
         self.dma_address = 0;
         self.dma_transfer = true;
-      } else if address == 0x4016 || address == 0x4017 {
+      } else if address == 0x4016 || address == 0x4017 
+      {
         self.controller_state[0] = self.controller[0];
       }
     }else{
@@ -75,12 +84,17 @@ impl Bus {
     if let Some(ref c) = self.cartridge {
       if c.borrow_mut().cpu_read(address, &mut data)
       {
-      } else if address >= 0x0000 && address <= 0x1FFF 
+        //Do nothing, data supplied by cartridge
+      } 
+      else if address >= 0x0000 && address <= 0x1FFF 
       {
         data = self.ram[(address & 0x07FF) as usize];
-      } else if address >= 0x2000 && address <= 0x3FFF {
+      } 
+      else if address >= 0x2000 && address <= 0x3FFF 
+      {
         data = self.ppu.cpu_read(address & 0x0007, read_only);
-      } else if address >= 0x4016 && address <= 0x4017 {
+      } else if address >= 0x4016 && address <= 0x4017 
+      {
         data = ((self.controller_state[0] & 0x80) > 0) as u8;
         self.controller_state[0] <<= 1;
       }
@@ -88,14 +102,12 @@ impl Bus {
     {
       data = self.ram[(address & 0x07FF) as usize];
     }
-
     return data;
   }
 
   pub fn connect_cartridge(&mut self, cartridge: Rc<RefCell<Cartridge>>) {
     self.cartridge = Some(cartridge.clone());
     self.ppu.connect_cartridge(cartridge.clone());
-    self.apu.dmc.connect_cartridge(cartridge.clone());
   }
   pub fn clock(&mut self) {
     self.ppu.clock();
