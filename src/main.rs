@@ -110,8 +110,7 @@ fn main() -> Result<(), String> {
                     None
                 }
             }
-        })
-        .expect("Couldn't open any controllers");
+        });
 
     let device = audio_subsystem.open_queue::<i16, _>(None, &desired_spec)?;
     device.resume();
