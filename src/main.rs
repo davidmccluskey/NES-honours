@@ -88,6 +88,30 @@ fn main() -> Result<(), String> {
         channels: Some(1), // mono
         samples: None,     // default sample size
     };
+    let game_controller_subsystem = sdl_context.game_controller()?;
+
+    let available = game_controller_subsystem
+        .num_joysticks()
+        .map_err(|e| format!("can't enumerate joysticks: {}", e))?;
+
+    println!("{} joysticks connected", available);
+
+    let mut controller = (0..available)
+        .find_map(|id| {
+            if !game_controller_subsystem.is_game_controller(id) {
+                return None;
+            }
+            match game_controller_subsystem.open(id) {
+                Ok(c) => {
+                    println!("Connected \"{}\"", c.name());
+                    Some(c)
+                }
+                Err(e) => {
+                    None
+                }
+            }
+        })
+        .expect("Couldn't open any controllers");
 
     let device = audio_subsystem.open_queue::<i16, _>(None, &desired_spec)?;
     device.resume();
@@ -207,12 +231,65 @@ fn main() -> Result<(), String> {
             global_nes.bus.controller[0] |= 0x02;
         }
         for event in sdl_context.event_pump()?.poll_iter() {
+            use sdl2::controller::Button;
             match event {
                 Event::KeyDown {
                     keycode: Some(Keycode::X), //B
                     ..
                 } => {
                     b_pressed = true;
+                }
+                Event::ControllerButtonDown { button, .. } => {
+                    if button == Button::A{
+                        a_pressed = true;
+                    }
+                    if button == Button::B{
+                        b_pressed = true;
+                    }
+                    if button == Button::DPadLeft{
+                        left_pressed = true;
+                    }
+                    if button == Button::DPadRight{
+                        right_pressed = true;
+                    }
+                    if button == Button::DPadDown{
+                        down_pressed = true;
+                    }
+                    if button == Button::DPadUp{
+                        up_pressed = true;
+                    }
+                    if button == Button::Start{
+                        start_pressed = true;
+                    }
+                    if button == Button::Back{
+                        select_pressed = true;
+                    }
+                }
+                Event::ControllerButtonUp { button, .. } => {
+                    if button == Button::A{
+                        a_pressed = false;
+                    }
+                    if button == Button::B{
+                        b_pressed = false;
+                    }
+                    if button == Button::DPadLeft{
+                        left_pressed = false;
+                    }
+                    if button == Button::DPadRight{
+                        right_pressed = false;
+                    }
+                    if button == Button::DPadDown{
+                        down_pressed = false;
+                    }
+                    if button == Button::DPadUp{
+                        up_pressed = false;
+                    }
+                    if button == Button::Start{
+                        start_pressed = false;
+                    }
+                    if button == Button::Back{
+                        select_pressed = false;
+                    }
                 }
                 Event::KeyUp {
                     keycode: Some(Keycode::X), //B
